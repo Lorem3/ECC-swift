@@ -1,0 +1,16 @@
+PODS:
+  - SSKeychain (1.4.1)
+
+DEPENDENCIES:
+  - SSKeychain
+
+SPEC REPOS:
+  trunk:
+    - SSKeychain
+
+SPEC CHECKSUMS:
+  SSKeychain: 55cc80f66f5c73da827e3077f02e43528897db41
+
+PODFILE CHECKSUM: b4bb8fbf5cc1fdf4624a39939df23102deebb48e
+
+COCOAPODS: 1.10.0
