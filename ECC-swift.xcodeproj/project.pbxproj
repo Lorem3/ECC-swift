@@ -13,6 +13,7 @@
 		C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED65B27D5FBA0009C8CBC /* main.swift */; };
 		C49ED66327D5FBEC009C8CBC /* ECC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66227D5FBEC009C8CBC /* ECC.swift */; };
 		C49ED66527D5FE23009C8CBC /* Base64.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66427D5FE23009C8CBC /* Base64.swift */; };
+		C4B433A927EC68AC00F8E6DD /* words.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B433A827EC68AC00F8E6DD /* words.swift */; };
 		C4D9686C27E1AF0300710BDC /* Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D9686B27E1AF0300710BDC /* Tools.swift */; };
 		C4F22D1927EB254B00BEEF1F /* keychaintool.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F22D1827EB254B00BEEF1F /* keychaintool.swift */; };
 /* End PBXBuildFile section */
@@ -45,6 +46,7 @@
 		C49ED66227D5FBEC009C8CBC /* ECC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ECC.swift; sourceTree = "<group>"; };
 		C49ED66427D5FE23009C8CBC /* Base64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Base64.swift; sourceTree = "<group>"; };
 		C49ED68327D74935009C8CBC /* ECC-swift.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ECC-swift.h"; sourceTree = "<group>"; };
+		C4B433A827EC68AC00F8E6DD /* words.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = words.swift; sourceTree = "<group>"; };
 		C4D9686B27E1AF0300710BDC /* Tools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools.swift; sourceTree = "<group>"; };
 		C4F22D1827EB254B00BEEF1F /* keychaintool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = keychaintool.swift; sourceTree = "<group>"; };
 		F6F546112C3001855EA315AA /* Pods-ECC-swift.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ECC-swift.release.xcconfig"; path = "Target Support Files/Pods-ECC-swift/Pods-ECC-swift.release.xcconfig"; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 				C49ED66427D5FE23009C8CBC /* Base64.swift */,
 				C49ED66227D5FBEC009C8CBC /* ECC.swift */,
 				C41B6B0127E81C9D0073AD1D /* randomArt.swift */,
+				C4B433A827EC68AC00F8E6DD /* words.swift */,
 				C4F22D1827EB254B00BEEF1F /* keychaintool.swift */,
 			);
 			path = "ECC-swift";
@@ -245,6 +248,7 @@
 				C49ED66527D5FE23009C8CBC /* Base64.swift in Sources */,
 				C49ED66327D5FBEC009C8CBC /* ECC.swift in Sources */,
 				C4D9686C27E1AF0300710BDC /* Tools.swift in Sources */,
+				C4B433A927EC68AC00F8E6DD /* words.swift in Sources */,
 				C4F22D1927EB254B00BEEF1F /* keychaintool.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -406,6 +410,7 @@
 					"$(PROJECT_DIR)",
 					"$(PROJECT_DIR)/Secp256k1Lib",
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = ECC;
 				SWIFT_INCLUDE_PATHS = "";

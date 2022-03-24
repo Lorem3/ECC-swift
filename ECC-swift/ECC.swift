@@ -72,7 +72,23 @@ class LTEccTool {
                 }
                 memcpy(&_keysNew, p2, kECPrivateKeyByteCount);
             };
-        }else{
+        }
+        else if keyPhrase != nil {
+            var salt = [0x2a,0x3d,0xeb,0x93,0xcf,0x9c,0x29,0x81,0xbc,0xb0,0x08,0x57,0x3b,0x98,0x24,0x53,0x99,0xd1,0xac,0x1c,0xee,0x86,0x14,0xbb,0xb6,0xcf,0x79,0xde,0xf7,0x61,0x54,0x71] as [UInt8]
+            let saltLen = salt.count;
+            let itr = 123456;
+            
+            
+            repeat{
+                _ = keyPhrase!.withCString({ bf in
+                    CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),bf,keyPhrase!.count,&salt,saltLen,CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), UInt32(itr), &_keysNew , kECPrivateKeyByteCount)
+                })
+            }while secp256k1_ec_seckey_verify(self.ctx , &_keysNew) == 0
+            
+             
+        }
+        
+        else{
             genSecKey(&_keysNew);
         }
         
@@ -510,6 +526,24 @@ class LTEccTool {
         }while (readLen > 0);
     }
     
+    func dealOutPath(outpath:String) -> String{
+        // check if outpat is exsit, if exsist ,change name by adding _i
+        let pathComponets = outpath.split(separator: "/")
+        var nameComponet = pathComponets.last!.components(separatedBy: ".")
+        let name =  nameComponet.first;
+        var fileAutoIndex = 1;
+        var result :String = outpath;
+        while FileManager.default.fileExists(atPath: result){
+            nameComponet[0] = name! + "_\(fileAutoIndex)";
+            fileAutoIndex += 1;
+            let path = pathComponets.dropLast().joined(separator: "/");
+            let name2 = nameComponet.joined(separator: ".");
+            result = "/" + path + "/" + name2;
+        }
+        return result
+        
+    }
+    
     func ecDecryptFile(filePath:String,outFilePath:String?,prikeyString:String) throws{
         let inFilePath = dealPath(filePath);
         var outpath:String
@@ -523,18 +557,8 @@ class LTEccTool {
             outpath = dealPath(outFilePath!);
         }
         
-        // check if outpat is exsit, if exsist ,change name by adding _i
-        let pathComponets = outpath.split(separator: "/")
-        var nameComponet = pathComponets.last!.components(separatedBy: ".")
-        let name =  nameComponet.first;
-        var fileAutoIndex = 1;
-        while FileManager.default.fileExists(atPath: outpath){
-            nameComponet[0] = name! + "_\(fileAutoIndex)";
-            fileAutoIndex += 1;
-            let path = pathComponets.dropLast().joined(separator: "/");
-            let name2 = nameComponet.joined(separator: ".");
-            outpath = "/" + path + "/" + name2;
-        }
+        outpath = dealOutPath(outpath: outpath);
+//
         
         var streamIn = InputStream(fileAtPath: inFilePath)!
         streamIn.open()
@@ -777,6 +801,7 @@ class LTEccTool {
         else{
             outPath = originInFile + ".ec"
         }
+        outPath = dealOutPath(outpath: outPath);
         
         let _streamIn  = InputStream(fileAtPath: inFilePath);
         let _streamOut  = OutputStream(toFileAtPath:outPath , append: false);
@@ -969,6 +994,8 @@ class LTEccTool {
             fclose(fzip);
             try? FileManager.default.removeItem(atPath: strziptmp!);
         }
+        
+        print("out:",outPath);
          
     }
     
@@ -1002,12 +1029,25 @@ class LTEccTool {
 
 }
 
+extension FileHandle : TextOutputStream {
+  public func write(_ string: String) {
+    guard let data = string.data(using: .utf8) else { return }
+    self.write(data)
+  }
+}
+
 func Lprint(_ msg:Any ... ,file:String = #file,name:String = #function, line :Int = #line){
-    print("\(name) line:\(line) :");
+    
+    return
+    
+    var stderr = FileHandle.standardError
+    print("\(name) line:\(line) :" ,to:&stderr);
+    
+    
     for i in msg{
-        print(i , separator:"", terminator: " ");
+        print(i , separator:"", terminator: " ",to:&stderr);
     }
-    print("");
+    print("",to:&stderr);
     
 }
 

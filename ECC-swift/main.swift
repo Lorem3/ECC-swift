@@ -45,23 +45,23 @@ func printKey(key:Data){
         ZeroCount += 8-c;
     }
     print("0/1 = \(ZeroCount)/\(OneCount)");
-
     
-//    bit map
-//    for i in 0..<key.count{
-//        if(i % 3 == 0){
-//            print("");
-//        }
-//        let p = key[i];
-//        for j in 0..<8{
-//            if((p & (1 << j)) != 0){
-//                print("o" ,separator: "",terminator: "");
-//            }else{
-//                print("." ,separator: "",terminator: "");
-//            }
-//        }
-//    }
-//    print("\n")
+    
+    //    bit map
+    //    for i in 0..<key.count{
+    //        if(i % 3 == 0){
+    //            print("");
+    //        }
+    //        let p = key[i];
+    //        for j in 0..<8{
+    //            if((p & (1 << j)) != 0){
+    //                print("o" ,separator: "",terminator: "");
+    //            }else{
+    //                print("." ,separator: "",terminator: "");
+    //            }
+    //        }
+    //    }
+    //    print("\n")
     
 }
 
@@ -89,7 +89,6 @@ repeat{
     var strPreKey:String?
     var dicArg = Dictionary<String,Any>();
     for i in 1..<CommandLine.arguments.count{
-        Lprint(CommandLine.arguments[i])
         let argument = CommandLine.arguments[i];
         if argument.hasPrefix("-"){
             var strKey = argument;
@@ -105,85 +104,202 @@ repeat{
             if (preValue == nil ){
                 dicArg[strPreKey!] = strValue
             }
-            else if preValue is [Any]{
-                var arr = preValue as! [Any]
-                arr.append(strValue)
+            else if preValue is NSMutableArray{
+                let arr = preValue as! NSMutableArray;
+                arr.add(strValue)
             }else if(strPreKey == "f"){
-                var arr = [Any]();
+                let arr = NSMutableArray();
                 if(preValue != nil){
-                    arr.append(preValue!)
+                    arr.add(preValue as! String)
                 }
-                arr.append(strValue)
+                arr.add(strValue)
                 dicArg[strPreKey!] = arr
             }
         }
-        
-        
-        
-        
-        
-        let cmd = CommandLine.arguments[1];
-        var strSecKey = dicArg["s"] as! String?
-        if strPreKey == nil{
-            strSecKey = dicArg["secKey"] as! String?
-        }
-        if strPreKey == nil{
-            strSecKey = dicArg["prikey"] as! String?
-        }
-      
-        
-        switch cmd {
-        case "g":
-            let keyphrase = dicArg["k"] as! String?
-            if keyphrase != nil && strSecKey != nil {
-                print("seckey [s] is specified,the key phrass [k] will be ignored");
-            }
-            else if(keyphrase != nil){
-                Lprint("to be done")
-            }else {
-                let kp = try? LTEccTool.shared.genKeyPair(strSecKey, keyPhrase:keyphrase )
-                
-                let keyData = try?  LTBase64.base64Decode(kp!.priKey);
-                printKey(key: keyData!)
-                
-                print("publickey:\(kp!.pubKey)\nprivatekey:\(kp!.priKey)")
-                
-            }
-            
-        case "e":
-            var strPubKey = dicArg["p"] as!  String?
-            if (strPubKey == nil  ) {
-                strPubKey = dicArg["pubKey"] as!  String?
-            }
-            if (strPubKey == nil){
-                strPubKey = LEccKeyChain.shared.getPublicKeyInKeychain();
-            }
-            
-            if(strPubKey == nil){
-                print("need pubkey ,use -p pubkey");
-                exit(1);
-            }
-            
-            
-            print("3x")
-        case "d":
-            print("3x")
-        case "r":
-            print("3x")
-        case "s":
-            print("3x")
-            
-        default:
-            print(helpMsg)
-        }
-        print(cmd)
-        
-        
-        
-        
     }
-     
-    Lprint(dicArg)
     
+    
+    
+    
+    let cmd = CommandLine.arguments[1];
+    var strSecKey = dicArg["s"] as! String?
+    if strPreKey == nil{
+        strSecKey = dicArg["secKey"] as! String?
+    }
+    if strPreKey == nil{
+        strSecKey = dicArg["prikey"] as! String?
+    }
+    
+    
+    switch cmd {
+    case "g":
+        var keyphrase = dicArg["k"] as! String?
+        
+        if keyphrase != nil && strSecKey != nil {
+            print("seckey [s] is specified,the key phrass [k] will be ignored");
+        }
+        else if(keyphrase != nil){
+            
+            // if length of keyphrase is less than 4 ,treat it as word count
+            if keyphrase!.count < 4 {
+                let c =  Int(keyphrase!);
+                keyphrase =  WordList.genKeyPhrase(c!);
+            }
+            if keyphrase!.count < 10{
+                print("key phrase is too short < 10")
+                exit(1)
+            }
+            let kp = try? LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase )
+            print("Passphrase:(PBKDF2,sha256 ,salt:base64-Kj3rk8+cKYG8sAhXO5gkU5nRrBzuhhS7ts953vdhVHE= rounds:123456)");
+            print("\u{001B}[31;47m\(keyphrase!) \u{001B}[0;0m")
+            let keyData = try?  LTBase64.base64Decode(kp!.priKey);
+            printKey(key: keyData!)
+            
+            print("publickey:\(kp!.pubKey)\nprivatekey:\(kp!.priKey)")
+            
+            if kp != nil && CommandLine.arguments.contains("-S"){
+                
+                print("\u{001B}[31;47m this action [-S] will overwite key in keychain. continue[y/n] ? \u{001B}[0;0m")
+                let s = readLine();
+                if(s == "Y" || s == "y"){
+                    LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp!.priKey, publicKey: kp!.pubKey)
+                }
+            }
+            
+            
+            
+        }else {
+            let kp = try? LTEccTool.shared.genKeyPair(strSecKey, keyPhrase:nil )
+            
+            let keyData = try?  LTBase64.base64Decode(kp!.priKey);
+            printKey(key: keyData!)
+            
+            print("publickey:\(kp!.pubKey)\nprivatekey:\(kp!.priKey)")
+            
+            if kp != nil && CommandLine.arguments.contains("-S"){
+                
+                print("\u{001B}[31;47m this action [-S] will overwite key in keychain. continue[y/n] ? \u{001B}[0;0m")
+                let s = readLine();
+                if(s == "Y" || s == "y"){
+                    LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp!.priKey, publicKey: kp!.pubKey)
+                }
+            }
+        }
+        
+    case "e":
+        var strPubKey = dicArg["p"] as!  String?
+        if (strPubKey == nil  ) {
+            strPubKey = dicArg["pubKey"] as!  String?
+        }
+        if (strPubKey == nil){
+            strPubKey = LEccKeyChain.shared.getPublicKeyInKeychain();
+        }
+        
+        if(strPubKey == nil){
+            Lprint("need pubkey ,use -p pubkey");
+            exit(1);
+        }
+        
+        let files = dicArg["f"];
+        if files != nil {
+            if files is Array<Any>{
+                for file in files as! [String] {
+                    try? LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey!);
+                }
+                
+            }else if files is String{
+                try? LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!);
+                
+            }
+            
+            
+            
+            break
+        }
+        
+        
+        let strmsg = dicArg["m"] as! String?
+        var dataMsg = strmsg?.data(using: .utf8);
+        if(dataMsg == nil){
+            dataMsg = readDataFromStdIn();
+        }
+        
+        if dataMsg != nil {
+            let d = try? LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!);
+            
+            _ = d?.withUnsafeBytes({ bf  in
+                fwrite(bf.baseAddress, 1, bf.count, stdout);
+            })
+        }
+        
+        
+    case "d":
+        var seckey = dicArg["s"] as!  String?
+        if (seckey == nil  ) {
+            seckey = dicArg["prikey"] as!  String?
+        }
+        if (seckey == nil){
+            seckey = LEccKeyChain.shared.getPrivateKeyInKeychain();
+        }
+        
+        if(seckey == nil){
+            Lprint("need seckey ,use  -s seckey");
+            exit(1);
+        }
+        
+        let files = dicArg["f"];
+        if files != nil {
+            if files is Array<Any>{
+                for file in files as! [String] {
+                    try? LTEccTool.shared.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!)
+                }
+                
+            }else if files is String{
+                try? LTEccTool.shared.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!)
+            }
+            
+            
+            
+            break
+        }
+        
+        
+        let strmsg = dicArg["m"] as! String?
+        var dataMsg = strmsg?.data(using: .utf8);
+        if(dataMsg == nil){
+            dataMsg = readDataFromStdIn();
+        }
+        
+        if dataMsg != nil {
+            let d = try? LTEccTool.shared .ecDecrypt(encData: dataMsg!, priKey: seckey!);
+            
+            _ = d?.withUnsafeBytes({ bf  in
+                fwrite(bf.baseAddress, 1, bf.count, stdout);
+            })
+        }
+    case "s":
+        let s = LEccKeyChain.shared.getPrivateKeyInKeychain();
+        let g = LEccKeyChain.shared.getPublicKeyInKeychain();
+        if s != nil && g != nil {
+            
+            let dataOfSecure = try? LTBase64.base64Decode(s!);
+            printKey(key: dataOfSecure!)
+            print("privateKey:",s!);
+            print("publicKey:",g!);
+        }else{
+            print("no key in keychain")
+        }
+    case "r":
+        let strmsg = dicArg["m"] as! String?
+        var dataMsg = strmsg?.data(using: .utf8);
+        if(dataMsg == nil){
+            dataMsg = readDataFromStdIn();
+        }
+        let s = RandomArt.randomArt(data: dataMsg!, title: nil , end: nil)
+        print("\n\(s)");
+        break
+    default:
+        Lprint(helpMsg)
+    }
     
 }while false
