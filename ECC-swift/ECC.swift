@@ -78,10 +78,12 @@ class LTEccTool {
             let saltLen = salt.count;
             let itr = 123456;
             
-            
+        
+            let kk = keyPhrase?.data(using: .utf8);
             repeat{
-                _ = keyPhrase!.withCString({ bf in
-                    CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),bf,keyPhrase!.count,&salt,saltLen,CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), UInt32(itr), &_keysNew , kECPrivateKeyByteCount)
+                _ = kk!.withUnsafeBytes({ bf in
+                    let p = bf.baseAddress?.bindMemory(to: Int8.self, capacity: bf.count)
+                    CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),p,bf.count,&salt,saltLen,CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), UInt32(itr), &_keysNew , kECPrivateKeyByteCount)
                 })
             }while secp256k1_ec_seckey_verify(self.ctx , &_keysNew) == 0
             
