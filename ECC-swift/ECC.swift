@@ -466,10 +466,13 @@ class LTEccTool {
         
         var uncompressLen = 0 as Int32
         
-        
         repeat{
             uncompressLen = gzread(zipFile, buffer, UInt32(maxBuffer));
             streamOut.write(buffer, maxLength: Int(uncompressLen))
+            
+            if progress != nil {
+                progress!(0.0 as Float)
+            }
             
             if uncompressLen == -1 {
                 break;
@@ -745,7 +748,7 @@ class LTEccTool {
         CCCryptorRelease(cryptor);
         
         if tmpFile != nil && type == 0 {
-            print("unzipping, please wait...", separator: "",terminator: "" );
+            print("unzipping, please wait...");
             fflush(stdout)
             ungzipFile(infilePath: tmpFile!, outfilePath: realOutPath)
             print("\rUnzipping Done                                 " );

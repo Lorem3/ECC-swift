@@ -44,7 +44,7 @@ func printKey(key:Data){
         OneCount += c;
         ZeroCount += 8-c;
     }
-    print("0/1 = \(ZeroCount)/\(OneCount)");
+    print("0/1 = \(ZeroCount)/\(OneCount) = \(Float(ZeroCount)/Float(OneCount))");
     
     
     //    bit map
@@ -69,14 +69,13 @@ func printKey(key:Data){
 
 let helpMsg = """
 ecc 0.1.1
-https://github.com/vitock/LTEcc\
 g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count] [-S] saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] [-o outpath]
 d  -prikey/s prikey -m base64ciphermsg  binary data from stdin [-f inputfilepath] [-o outpath]
 r  -m msg print random art of msg
 s  show saved key in keychain
-        
--z set 0 if you dont want gzip
+
+-z 0 ,if don't want gzip File(-f) before encrypt, sepecify this
 """
 
 repeat{
@@ -151,15 +150,20 @@ repeat{
             }
             let kp = try? LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase )
             print("Passphrase:(PBKDF2,sha256 ,salt:base64-Kj3rk8+cKYG8sAhXO5gkU5nRrBzuhhS7ts953vdhVHE= rounds:123456)");
-            print("\u{001B}[31;47m\(keyphrase!) \u{001B}[0;0m")
+            print("\u{001B}[31;49m\(keyphrase!) \u{001B}[0;0m")
             let keyData = try?  LTBase64.base64Decode(kp!.priKey);
             printKey(key: keyData!)
             
-            print("publickey:\(kp!.pubKey)\nprivatekey:\(kp!.priKey)")
+            let resultStr = """
+prikey:\(kp!.priKey)
+pubKey:\(kp!.pubKey)
+"""
+            print(resultStr);
+            
             
             if kp != nil && CommandLine.arguments.contains("-S"){
                 
-                print("\u{001B}[31;47m this action [-S] will overwite key in keychain. continue[y/n] ? \u{001B}[0;0m")
+                print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
                 let s = readLine();
                 if(s == "Y" || s == "y"){
                     LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp!.priKey, publicKey: kp!.pubKey)
@@ -174,11 +178,15 @@ repeat{
             let keyData = try?  LTBase64.base64Decode(kp!.priKey);
             printKey(key: keyData!)
             
-            print("publickey:\(kp!.pubKey)\nprivatekey:\(kp!.priKey)")
+            let resultStr = """
+prikey:\(kp!.priKey)
+pubKey:\(kp!.pubKey)
+"""
+            print(resultStr)
             
             if kp != nil && CommandLine.arguments.contains("-S"){
                 
-                print("\u{001B}[31;47m this action [-S] will overwite key in keychain. continue[y/n] ? \u{001B}[0;0m")
+                print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
                 let s = readLine();
                 if(s == "Y" || s == "y"){
                     LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp!.priKey, publicKey: kp!.pubKey)
@@ -202,13 +210,16 @@ repeat{
         
         let files = dicArg["f"];
         if files != nil {
+            let gz = dicArg["z"] as! String?
+            let isGz = !(gz == "0");
+            
             if files is Array<Any>{
                 for file in files as! [String] {
-                    try? LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey!);
+                    try? LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz);
                 }
                 
             }else if files is String{
-                try? LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!);
+                try? LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz);
                 
             }
             
