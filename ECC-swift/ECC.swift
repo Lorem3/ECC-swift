@@ -568,9 +568,9 @@ class LTEccTool {
         var streamIn = InputStream(fileAtPath: inFilePath)!
         streamIn.open()
         
-        let kCCBlockSizeAES128 = kCCBlockSizeAES128 << 10;
+        let kBfSize = kCCBlockSizeAES128 << 10;
         var readLen  = 0;
-        let buffer = malloc(kCCBlockSizeAES128).bindMemory(to: UInt8.self, capacity: kCCBlockSizeAES128);
+        let buffer = malloc(kBfSize).bindMemory(to: UInt8.self, capacity: kBfSize);
         defer{
             free(buffer);
         }
@@ -593,8 +593,6 @@ class LTEccTool {
                 ivLen = bf[1].littleEndian;
                 macLen = bf[2].littleEndian;
                 ephermPubLen = bf[3].littleEndian;
-                Lprint(type,ivLen,macLen,ephermPubLen);
-                
                 let len1 = Int(ivLen) + Int(macLen) + Int(ephermPubLen);
                 
                 let len2 = streamIn.read(buffer, maxLength: len1);
@@ -667,16 +665,18 @@ class LTEccTool {
         readLen = streamIn.read(buffer, maxLength: BufferSize);
         
         let dataOutAvailable = BufferSize + kCCBlockSizeAES128
-        var dataOut = [UInt8](repeating: 0, count: BufferSize);
+        var dataOut = [UInt8](repeating: 0, count: dataOutAvailable);
         var dataOutLen = 0;
-        let fileSize :Int? = try? FileManager.default.attributesOfItem(atPath: inFilePath)[FileAttributeKey.size] as? Int;
+        
+        
+        let fileSize :Int? = try FileManager.default.attributesOfItem(atPath: inFilePath)[FileAttributeKey.size] as? Int;
         
         let  minDlt =  Int(Double(fileSize!) * 0.01);
         var checked = 0;
         var currentDlt = 0
         
         
-        print("");
+        print(inFilePath);
         _printProgress("check", 0);
         while readLen > 0 {
             CCHmacUpdate(&ctx, buffer, readLen);
@@ -1042,8 +1042,6 @@ extension FileHandle : TextOutputStream {
 }
 
 func Lprint(_ msg:Any ... ,file:String = #file,name:String = #function, line :Int = #line){
-    
-    return
     
     var stderr = FileHandle.standardError
     print("\(name) line:\(line) :" ,to:&stderr);

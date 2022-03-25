@@ -20,7 +20,7 @@ func readDataFromStdIn() -> Data{
         t += 1;
         
         c = fgetc(stdin);
-    }while c != EOF
+    }while c != EOF && t < bfsize
     
     free(buffer)
     return Data(bytes: buffer, count: t);
@@ -92,7 +92,6 @@ repeat{
         if argument.hasPrefix("-"){
             var strKey = argument;
             strKey = String(argument[argument.index(argument.startIndex, offsetBy: 1)..<argument.endIndex])
-            Lprint(argument,strKey)
             strPreKey = strKey;
             continue;
         }
@@ -262,11 +261,21 @@ pubKey:\(kp!.pubKey)
         if files != nil {
             if files is Array<Any>{
                 for file in files as! [String] {
-                    try? LTEccTool.shared.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!)
+                    do{
+                        try LTEccTool.shared.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!)
+                    }
+                    catch let e {
+                        Lprint(e);
+                    }
+                    
                 }
                 
             }else if files is String{
-                try? LTEccTool.shared.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!)
+                do{
+                    try LTEccTool.shared.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!)
+                }catch let e {
+                    Lprint(e)
+                }
             }
             
             

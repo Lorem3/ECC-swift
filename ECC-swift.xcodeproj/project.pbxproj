@@ -234,7 +234,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\nexport\necho 3333333\necho $BUILT_PRODUCTS_DIR\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/ecc\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
