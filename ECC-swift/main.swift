@@ -310,7 +310,7 @@ pubKey:\(kp.pubKey)
             print("privateKey:",s!);
             print("publicKey:",g!);
         }else{
-            print("no key in keychain")
+            print("no key in keychain or read fail")
         }
     case "r":
         let strmsg = dicArg["m"] as! String?
