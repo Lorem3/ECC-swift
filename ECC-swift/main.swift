@@ -78,6 +78,9 @@ s  show saved key in keychain
 -z 0 ,if don't want gzip File(-f) before encrypt, sepecify this
 """
 
+
+
+do{
 repeat{
     if CommandLine.arguments.count <= 1{
         print(helpMsg)
@@ -147,15 +150,15 @@ repeat{
                 print("key phrase is too short < 10")
                 exit(1)
             }
-            let kp = try? LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase )
+            let kp = try LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase )
             print("Passphrase:(PBKDF2,sha256 ,salt:base64-Kj3rk8+cKYG8sAhXO5gkU5nRrBzuhhS7ts953vdhVHE= rounds:123456)");
             print("\u{001B}[31;49m\(keyphrase!) \u{001B}[0;0m")
-            let keyData = try?  LTBase64.base64Decode(kp!.priKey);
-            printKey(key: keyData!)
+            let keyData = try  LTBase64.base64Decode(kp.priKey);
+            printKey(key: keyData)
             
             let resultStr = """
-prikey:\(kp!.priKey)
-pubKey:\(kp!.pubKey)
+prikey:\(kp.priKey)
+pubKey:\(kp.pubKey)
 """
             print(resultStr);
             
@@ -165,21 +168,21 @@ pubKey:\(kp!.pubKey)
                 print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
                 let s = readLine();
                 if(s == "Y" || s == "y"){
-                    LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp!.priKey, publicKey: kp!.pubKey)
+                    LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp.priKey, publicKey: kp.pubKey)
                 }
             }
             
             
             
         }else {
-            let kp = try? LTEccTool.shared.genKeyPair(strSecKey, keyPhrase:nil )
+            let kp = try LTEccTool.shared.genKeyPair(strSecKey, keyPhrase:nil )
             
-            let keyData = try?  LTBase64.base64Decode(kp!.priKey);
-            printKey(key: keyData!)
+            let keyData = try  LTBase64.base64Decode(kp.priKey);
+            printKey(key: keyData)
             
             let resultStr = """
-prikey:\(kp!.priKey)
-pubKey:\(kp!.pubKey)
+prikey:\(kp.priKey)
+pubKey:\(kp.pubKey)
 """
             print(resultStr)
             
@@ -188,7 +191,7 @@ pubKey:\(kp!.pubKey)
                 print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
                 let s = readLine();
                 if(s == "Y" || s == "y"){
-                    LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp!.priKey, publicKey: kp!.pubKey)
+                    LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp.priKey, publicKey: kp.pubKey)
                 }
             }
         }
@@ -214,11 +217,11 @@ pubKey:\(kp!.pubKey)
             
             if files is Array<Any>{
                 for file in files as! [String] {
-                    try? LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz);
+                    try LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz);
                 }
                 
             }else if files is String{
-                try? LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz);
+                try LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz);
                 
             }
             
@@ -235,9 +238,9 @@ pubKey:\(kp!.pubKey)
         }
         
         if dataMsg != nil {
-            let d = try? LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!);
+            let d = try LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!);
             
-            _ = d?.withUnsafeBytes({ bf  in
+            _ = d.withUnsafeBytes({ bf  in
                 fwrite(bf.baseAddress, 1, bf.count, stdout);
             })
         }
@@ -291,9 +294,9 @@ pubKey:\(kp!.pubKey)
         }
         
         if dataMsg != nil {
-            let d = try? LTEccTool.shared .ecDecrypt(encData: dataMsg!, priKey: seckey!);
+            let d = try LTEccTool.shared .ecDecrypt(encData: dataMsg!, priKey: seckey!);
             
-            _ = d?.withUnsafeBytes({ bf  in
+            _ = d.withUnsafeBytes({ bf  in
                 fwrite(bf.baseAddress, 1, bf.count, stdout);
             })
         }
@@ -302,8 +305,8 @@ pubKey:\(kp!.pubKey)
         let g = LEccKeyChain.shared.getPublicKeyInKeychain();
         if s != nil && g != nil {
             
-            let dataOfSecure = try? LTBase64.base64Decode(s!);
-            printKey(key: dataOfSecure!)
+            let dataOfSecure = try LTBase64.base64Decode(s!);
+            printKey(key: dataOfSecure)
             print("privateKey:",s!);
             print("publicKey:",g!);
         }else{
@@ -323,5 +326,8 @@ pubKey:\(kp!.pubKey)
     }
     
 }while false
-
+}
+catch let e {
+    print(e)
+}
  
