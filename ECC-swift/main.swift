@@ -71,7 +71,7 @@ func printKey(key:Data){
 
 
 let helpMsg = """
-ecc 0.1.1
+ecc 0.1.2
 g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count] [-S] saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] [-o outpath]
 d  -prikey/s prikey -m base64ciphermsg  binary data from stdin [-f inputfilepath] [-o outpath]
