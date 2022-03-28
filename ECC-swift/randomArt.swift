@@ -45,8 +45,10 @@ private func goWithValue(direction:UInt8,x:inout Int,y:inout Int ,outChar:inout 
         break;
     }
     valify(&realX, &realY);
-    let v = outChar[indexXY(realX, realY)]
-    outChar[indexXY(realX, realY)] = v + 1;
+    var v = outChar[indexXY(realX, realY)]
+    v &+= 1;
+    let j = indexXY(realX, realY)
+    outChar[j] = v;
     
     x = realX
     y = realY
@@ -64,6 +66,7 @@ class RandomArt{
             let p = bf.baseAddress!;
             _randomArt(p ,hashLen:bf.count, title: title, end: end, outString: &outS);
         }
+        
         
         let d = Data(bytes: &outS, count: outS.count);
         
@@ -85,13 +88,11 @@ class RandomArt{
             
             var direction  = tmp & 3;
             goWithValue(direction: direction, x: &x , y: &y , outChar: &outString);
-            
             direction = (tmp & (3 << 2)) >> 2 ;
             goWithValue(direction: direction, x: &x , y: &y , outChar:&outString)
                             
             direction = (tmp & (3 << 4)) >> 4 ;
             goWithValue(direction: direction, x: &x , y: &y , outChar:&outString)
-            
             
             direction = (tmp & (3 << 6)) >> 6 ;
             goWithValue(direction: direction, x: &x , y: &y , outChar:&outString)
@@ -103,6 +104,7 @@ class RandomArt{
         
         outString[indexXY(startX, startY)] = 15;
         outString[indexXY(x, y)] = 16;
+       
         
         let  Values : [UInt8] = " .o+=*BOX@%&#/^SE".map { c in
             return c.asciiValue!

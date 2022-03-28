@@ -13,6 +13,9 @@ func readDataFromStdIn() -> Data{
     // 30M
     let bfsize = (1 << 20) * 30
     let buffer = malloc( bfsize ).bindMemory(to: UInt8.self, capacity: bfsize)
+    defer{
+        free(buffer)
+    }
     var t = 0;
     c = fgetc(stdin);
     repeat{
@@ -22,8 +25,8 @@ func readDataFromStdIn() -> Data{
         c = fgetc(stdin);
     }while c != EOF && t < bfsize
     
-    free(buffer)
-    return Data(bytes: buffer, count: t);
+    let r = Data(bytes: buffer, count: t);
+    return r;
     
 }
 
@@ -268,7 +271,8 @@ pubKey:\(kp.pubKey)
                         try LTEccTool.shared.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!)
                     }
                     catch let e {
-                        Lprint(e);
+                        redPrint(e)
+//                        Lprint(e);
                     }
                     
                 }
@@ -278,6 +282,7 @@ pubKey:\(kp.pubKey)
                     try LTEccTool.shared.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!)
                 }catch let e {
                     Lprint(e)
+                    redPrint(e)
                 }
             }
             
@@ -328,6 +333,7 @@ pubKey:\(kp.pubKey)
 }while false
 }
 catch let e {
-    print(e)
+//    print(e)
+    redPrint(e)
 }
  

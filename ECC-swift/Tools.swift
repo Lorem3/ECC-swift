@@ -188,3 +188,8 @@ extension Data {
     }
 }
 
+
+
+func redPrint(_ msg:Any,line:Int = #line,funcname:String = #function){
+    print("\u{001B}[31;49m\(msg) \(funcname) \(line) \u{001B}[0;0m")
+}
