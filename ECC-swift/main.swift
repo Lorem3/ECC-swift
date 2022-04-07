@@ -72,16 +72,15 @@ func printKey(key:Data){
 
 let helpMsg = """
 ecc 0.1.2
-g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count] [-S] saveto key chain
+g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count pbkdf2] [-kt 1: scrypt default 2:pbkdf] [-S] saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] [-o outpath]
+   -a a:aes256 s:salsa20 default
 d  -prikey/s prikey -m base64ciphermsg  binary data from stdin [-f inputfilepath] [-o outpath]
 r  -m msg print random art of msg
 s  show saved key in keychain
 
 -z 0 ,if don't want gzip File(-f) before encrypt, sepecify this
 """
-
-
 
 do{
 repeat{
@@ -153,9 +152,32 @@ repeat{
                 print("key phrase is too short < 10")
                 exit(1)
             }
-            let kp = try LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase )
-            print("Passphrase:(PBKDF2,sha256 ,salt:base64-Kj3rk8+cKYG8sAhXO5gkU5nRrBzuhhS7ts953vdhVHE= rounds:123456)");
-            print("\u{001B}[31;49m\(keyphrase!) \u{001B}[0;0m")
+            
+            // Scrypt
+            var kdfType = 1;
+            let kt = dicArg["kt"] as! String?
+            if(kt != nil && kt   == "2"){
+                kdfType = 2;
+            }
+            
+            let kp = try LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase,kdftype: kdfType)
+            
+            if(kdfType == 1){
+                let msg = """
+            scrypt N = 16384 r = 8 p = 1
+            salt [length \(KDF.scryptSalt.count)]:
+            \u{001B}[31;49m\(KDF.scryptSalt)\u{001B}[0;0m
+            
+            phrase:[length \(keyphrase!.count)]\u{001B}[31;49m\(keyphrase!)\u{001B}[0;0m
+            
+            """
+                print(msg);
+            }else{
+                print("Passphrase:(PBKDF2,sha256 ,salt:base64-Kj3rk8+cKYG8sAhXO5gkU5nRrBzuhhS7ts953vdhVHE= rounds:123456)");
+                print("\u{001B}[31;49m\(keyphrase!) \u{001B}[0;0m")
+            }
+            
+            
             let keyData = try  LTBase64.base64Decode(kp.priKey);
             printKey(key: keyData)
             
@@ -218,14 +240,22 @@ pubKey:\(kp.pubKey)
             let gz = dicArg["z"] as! String?
             let isGz = !(gz == "0");
             
+            let t:CryptAlgorithm
+            let atype = dicArg["a"] as! String?
+            if(atype == "a"){
+                t = CryptAlgorithm.aes256
+            }else{
+                t = CryptAlgorithm.salsa20
+            }
+            
+            
             if files is Array<Any>{
                 for file in files as! [String] {
-                    try LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz);
+                    try LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz, alg:t);
                 }
                 
             }else if files is String{
-                try LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz);
-                
+                try LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz,alg:t);
             }
             
             
@@ -241,7 +271,17 @@ pubKey:\(kp.pubKey)
         }
         
         if dataMsg != nil {
-            let d = try LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!);
+            
+            let t:CryptAlgorithm
+            let atype = dicArg["a"] as! String?
+            if(atype == "a"){
+                t = CryptAlgorithm.aes256
+            }else{
+                t = CryptAlgorithm.salsa20
+            }
+            
+            
+            let d = try LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!,type: t);
             
             _ = d.withUnsafeBytes({ bf  in
                 fwrite(bf.baseAddress, 1, bf.count, stdout);
@@ -329,11 +369,13 @@ pubKey:\(kp.pubKey)
     default:
         Lprint(helpMsg)
     }
-    
+        
 }while false
 }
 catch let e {
 //    print(e)
     redPrint(e)
 }
- 
+
+//let t = Test();
+//t.test();

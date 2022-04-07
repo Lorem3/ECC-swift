@@ -2,4 +2,5 @@
 **/xcuserdata/
 **/xcshareddata
 **/xcshareddata/
-Pods/*
+**/test.swift
+Pods

@@ -7,4 +7,5 @@ target 'ECC-swift' do
 
   # Pods for ECC-swift
   pod 'SSKeychain' 
+  pod 'LTScrypt' , :git => 'https://github.com/vitock/scrypt'
 end

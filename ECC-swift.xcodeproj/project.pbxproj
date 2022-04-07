@@ -10,6 +10,8 @@
 		7A13DBA2A294CD60C0F9CDC3 /* Pods_ECC_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 783E780A82AFB247DBB67D10 /* Pods_ECC_swift.framework */; };
 		C41B6B0227E81C9D0073AD1D /* randomArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B6B0127E81C9D0073AD1D /* randomArt.swift */; };
 		C43992A727D9AF0500350C96 /* libsecp256k1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C43992A627D9AF0500350C96 /* libsecp256k1.a */; };
+		C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B427FDE1B6004E55FC /* Cryptor.swift */; };
+		C43B06B727FEA870004E55FC /* test.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B627FEA870004E55FC /* test.swift */; };
 		C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED65B27D5FBA0009C8CBC /* main.swift */; };
 		C49ED66327D5FBEC009C8CBC /* ECC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66227D5FBEC009C8CBC /* ECC.swift */; };
 		C49ED66527D5FE23009C8CBC /* Base64.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66427D5FE23009C8CBC /* Base64.swift */; };
@@ -41,6 +43,8 @@
 		C43992AB27D9AF1A00350C96 /* secp256k1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1.h; path = Secp256k1Lib/include/secp256k1.h; sourceTree = "<group>"; };
 		C43992AC27D9AF1A00350C96 /* secp256k1_ecdh.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1_ecdh.h; path = Secp256k1Lib/include/secp256k1_ecdh.h; sourceTree = "<group>"; };
 		C43992AD27D9AF1B00350C96 /* secp256k1_recovery.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1_recovery.h; path = Secp256k1Lib/include/secp256k1_recovery.h; sourceTree = "<group>"; };
+		C43B06B427FDE1B6004E55FC /* Cryptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cryptor.swift; sourceTree = "<group>"; };
+		C43B06B627FEA870004E55FC /* test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test.swift; sourceTree = "<group>"; };
 		C49ED65827D5FBA0009C8CBC /* ECC */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ECC; sourceTree = BUILT_PRODUCTS_DIR; };
 		C49ED65B27D5FBA0009C8CBC /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		C49ED66227D5FBEC009C8CBC /* ECC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ECC.swift; sourceTree = "<group>"; };
@@ -103,12 +107,14 @@
 			isa = PBXGroup;
 			children = (
 				C49ED65B27D5FBA0009C8CBC /* main.swift */,
+				C43B06B627FEA870004E55FC /* test.swift */,
 				C4D9686B27E1AF0300710BDC /* Tools.swift */,
 				C49ED66427D5FE23009C8CBC /* Base64.swift */,
 				C49ED66227D5FBEC009C8CBC /* ECC.swift */,
 				C41B6B0127E81C9D0073AD1D /* randomArt.swift */,
 				C4B433A827EC68AC00F8E6DD /* words.swift */,
 				C4F22D1827EB254B00BEEF1F /* keychaintool.swift */,
+				C43B06B427FDE1B6004E55FC /* Cryptor.swift */,
 			);
 			path = "ECC-swift";
 			sourceTree = "<group>";
@@ -234,7 +240,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/ecc\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/ECC\nmkdir -p \"${SRCROOT}/release\"\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" \"${SRCROOT}/release/ecc\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -246,6 +252,8 @@
 				C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */,
 				C41B6B0227E81C9D0073AD1D /* randomArt.swift in Sources */,
 				C49ED66527D5FE23009C8CBC /* Base64.swift in Sources */,
+				C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */,
+				C43B06B727FEA870004E55FC /* test.swift in Sources */,
 				C49ED66327D5FBEC009C8CBC /* ECC.swift in Sources */,
 				C4D9686C27E1AF0300710BDC /* Tools.swift in Sources */,
 				C4B433A927EC68AC00F8E6DD /* words.swift in Sources */,

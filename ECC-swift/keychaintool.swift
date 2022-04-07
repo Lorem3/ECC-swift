@@ -13,8 +13,8 @@ class LEccKeyChain {
     static let shared = LEccKeyChain();
     
     func saveKeyInKeychain(secureKey:String,publicKey:String){
-        let dataSec = try? LTEccTool.shared.ecEncrypt(data: secureKey.data(using: .utf8)!, pubKey: pubkeyforkeychain)
-        let dataPub = try? LTEccTool.shared.ecEncrypt(data: publicKey.data(using: .utf8)!, pubKey: pubkeyforkeychain)
+        let dataSec = try? LTEccTool.shared.ecEncrypt(data: secureKey.data(using: .utf8)!, pubKey: pubkeyforkeychain ,type:CryptAlgorithm.aes256)
+        let dataPub = try? LTEccTool.shared.ecEncrypt(data: publicKey.data(using: .utf8)!, pubKey: pubkeyforkeychain ,type:CryptAlgorithm.aes256)
         
         if dataSec != nil && dataPub != nil{
             SSKeychain.setPassword(dataSec?.base64EncodedString(), forService: "vitock.ecc.privatekey", account: "bd454dc28bdd8ffda5c775185ccc9814");
@@ -24,7 +24,11 @@ class LEccKeyChain {
     }
      
     func getPublicKeyInKeychain()->String?{
-        let strvalue =  SSKeychain .password(forService: "vitock.ecc.publickey", account: "e46c6231b528cd74e81570e0409eac2a");
+        var err : NSError? = nil
+        let strvalue =  SSKeychain .password(forService: "vitock.ecc.publickey", account: "e46c6231b528cd74e81570e0409eac2a",error: &err);
+        if err != nil{
+            print(err!)
+        }
         guard strvalue != nil else{
             return nil
         }
@@ -47,7 +51,11 @@ class LEccKeyChain {
     }
     
     func getPrivateKeyInKeychain()->String?{
-        let strvalue =  SSKeychain .password(forService: "vitock.ecc.privatekey", account: "bd454dc28bdd8ffda5c775185ccc9814");
+        var err: NSError? = nil;
+        let strvalue =  SSKeychain .password(forService: "vitock.ecc.privatekey", account: "bd454dc28bdd8ffda5c775185ccc9814" ,error: &err);
+        if err != nil{
+            print(err!)
+        }
         guard strvalue != nil else{
             return nil
         }
