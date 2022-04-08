@@ -71,7 +71,7 @@ func printKey(key:Data){
 
 
 let helpMsg = """
-ecc 0.1.2
+ecc 0.2.0
 g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count pbkdf2] [-kt 1: scrypt default 2:pbkdf] [-S] saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] [-o outpath]
    -a a:aes256 s:salsa20 default
@@ -80,6 +80,12 @@ r  -m msg print random art of msg
 s  show saved key in keychain
 
 -z 0 ,if don't want gzip File(-f) before encrypt, sepecify this
+
+if you dont want specify -s -p everytime ,
+set EC_SECKEY or EC_PUBKEY on current ENV
+export set EC_SECKEY=...
+export set EC_PUBKEY=...
+unset EC_PUBKEY EC_SECKEY
 """
 
 do{
@@ -168,7 +174,7 @@ repeat{
             salt [length \(KDF.scryptSalt.count)]:
             \u{001B}[31;49m\(KDF.scryptSalt)\u{001B}[0;0m
             
-            phrase:[length \(keyphrase!.count)]\u{001B}[31;49m\(keyphrase!)\u{001B}[0;0m
+            phrase [length \(keyphrase!.count)]:\u{001B}[31;49m\(keyphrase!)\u{001B}[0;0m
             
             """
                 print(msg);
@@ -184,6 +190,9 @@ repeat{
             let resultStr = """
 prikey:\(kp.priKey)
 pubKey:\(kp.pubKey)
+
+unset EC_PUBKEY EC_SECKEY
+export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
 """
             print(resultStr);
             
@@ -208,6 +217,9 @@ pubKey:\(kp.pubKey)
             let resultStr = """
 prikey:\(kp.priKey)
 pubKey:\(kp.pubKey)
+
+unset EC_PUBKEY EC_SECKEY
+export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
 """
             print(resultStr)
             
@@ -280,8 +292,9 @@ pubKey:\(kp.pubKey)
                 t = CryptAlgorithm.salsa20
             }
             
+            let z = (dicArg["z"] as! String? != "0") ? 1 : 0
             
-            let d = try LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!,type: t);
+            let d = try LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!,zipfirst: z,type: t);
             
             _ = d.withUnsafeBytes({ bf  in
                 fwrite(bf.baseAddress, 1, bf.count, stdout);
@@ -352,8 +365,14 @@ pubKey:\(kp.pubKey)
             
             let dataOfSecure = try LTBase64.base64Decode(s!);
             printKey(key: dataOfSecure)
-            print("privateKey:",s!);
-            print("publicKey:",g!);
+            let msg =
+"""
+privateKey:\(s!)
+publicKey:\(g!)
+export set EC_PUBKEY=\(s!) EC_SECKEY=\(s!)
+unset EC_PUBKEY EC_SECKEY
+"""
+            print(msg);
         }else{
             print("no key in keychain or read fail")
         }

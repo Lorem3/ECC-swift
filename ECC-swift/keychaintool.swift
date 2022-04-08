@@ -24,6 +24,12 @@ class LEccKeyChain {
     }
      
     func getPublicKeyInKeychain()->String?{
+        
+        let P = ProcessInfo.processInfo.environment["EC_PUBKEY"]
+        if P != nil && P is String{
+            return P;
+        }
+        
         var err : NSError? = nil
         let strvalue =  SSKeychain .password(forService: "vitock.ecc.publickey", account: "e46c6231b528cd74e81570e0409eac2a",error: &err);
         if err != nil{
@@ -51,6 +57,11 @@ class LEccKeyChain {
     }
     
     func getPrivateKeyInKeychain()->String?{
+        let S = ProcessInfo.processInfo.environment["EC_SECKEY"]
+        if S != nil && S is String{
+            return S;
+        }
+        
         var err: NSError? = nil;
         let strvalue =  SSKeychain .password(forService: "vitock.ecc.privatekey", account: "bd454dc28bdd8ffda5c775185ccc9814" ,error: &err);
         if err != nil{
