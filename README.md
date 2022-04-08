@@ -1,3 +1,13 @@
+
+
+增加Salsa20 加密算法 并设置为默认
+增加Scrypt算法,根据密码短语生成对应的密钥 取代的pbkdf2
+```
+N = 16384 r = 8 p = 1
+salt [length 414]:
+The California sea lion (Zalophus californianus) is a coastal species of eared seal native to western North America. It is one of six species of sea lion. Its natural habitat ranges from southeast Alaska to central Mexico, including the Gulf of California. This female sea lion was photographed next to a western gull in Scripps Park in the neighborhood of La Jolla in San Diego, California. [2022-04-07 wikipedia]
+```
+
 # 改用 swift改写
 
 # LTEcc

@@ -367,9 +367,10 @@ export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
             printKey(key: dataOfSecure)
             let msg =
 """
+----
 privateKey:\(s!)
 publicKey:\(g!)
-export set EC_PUBKEY=\(s!) EC_SECKEY=\(s!)
+export set EC_PUBKEY=\(g!) EC_SECKEY=\(s!)
 unset EC_PUBKEY EC_SECKEY
 """
             print(msg);
