@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CommonCrypto
 
 
 private let SECP256K1_FLAGS_TYPE_CONTEXT :UInt32 =  (1 << 0);
@@ -89,9 +90,12 @@ class LTEccTool {
             };
         }
         else if keyPhrase != nil {
-            keyPhrase?.withCString({ bfKey  in
-                KDF.generateKey(phrase: bfKey, phraseSize: keyPhrase!.count, type:kdftype == 1 ? KDFType.scrypt : KDFType.kdfv2, outKey: &_keysNew, outKeyLen: kECPrivateKeyByteCount)
-            });
+            let dataKey = keyPhrase?.data(using: .utf8);
+            dataKey!.withUnsafeBytes({ bfKey  in
+                KDF.generateKey(phrase: bfKey.baseAddress!, phraseSize: bfKey.count, type:kdftype == 1 ? KDFType.scrypt : KDFType.kdfv2, outKey: &_keysNew, outKeyLen: kECPrivateKeyByteCount)
+            })
+            
+            
              
         }
         

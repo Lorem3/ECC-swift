@@ -8,6 +8,7 @@
 import Foundation
 import LTScrypt
 import AppKit
+import CommonCrypto
 enum CryptAlgorithm:Int{
     case    aes256 = 0
     case    salsa20 = 1
@@ -58,8 +59,7 @@ class Cryptor{
             CCCryptorUpdate(cc,bfIn,bfInSize,bfOut,bfOutMax,&outSize)
         }
         else if type == .salsa20{
-            sa!.update(inData: bfIn, outData: bfOut, size: bfInSize);
-            outSize = bfInSize;
+            sa!.update(inData: bfIn, outData: bfOut, size: bfInSize,outSize: &outSize);
         }
         
     }
@@ -87,7 +87,7 @@ class Cryptor{
         }
         else if type == .salsa20{
             outSize = 0;
-            sa!.final();
+            sa!.final(outData: bfOut, outSize: &outSize);
             sa = nil
         }
     }

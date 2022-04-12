@@ -52,6 +52,7 @@
 		C49ED68327D74935009C8CBC /* ECC-swift.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ECC-swift.h"; sourceTree = "<group>"; };
 		C4B433A827EC68AC00F8E6DD /* words.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = words.swift; sourceTree = "<group>"; };
 		C4D9686B27E1AF0300710BDC /* Tools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools.swift; sourceTree = "<group>"; };
+		C4E9FE0A280300B00006B723 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		C4F22D1827EB254B00BEEF1F /* keychaintool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = keychaintool.swift; sourceTree = "<group>"; };
 		F6F546112C3001855EA315AA /* Pods-ECC-swift.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ECC-swift.release.xcconfig"; path = "Target Support Files/Pods-ECC-swift/Pods-ECC-swift.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -89,6 +90,7 @@
 				C43992AB27D9AF1A00350C96 /* secp256k1.h */,
 				C49ED68327D74935009C8CBC /* ECC-swift.h */,
 				C49ED65A27D5FBA0009C8CBC /* ECC-swift */,
+				C4E9FE09280300B00006B723 /* test */,
 				C49ED65927D5FBA0009C8CBC /* Products */,
 				C49ED66627D743A0009C8CBC /* Frameworks */,
 				309FAE9C25D0BE8917FC56E3 /* Pods */,
@@ -126,6 +128,14 @@
 				783E780A82AFB247DBB67D10 /* Pods_ECC_swift.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C4E9FE09280300B00006B723 /* test */ = {
+			isa = PBXGroup;
+			children = (
+				C4E9FE0A280300B00006B723 /* main.swift */,
+			);
+			path = test;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

@@ -16,7 +16,7 @@ EXTERNAL SOURCES:
 
 CHECKOUT OPTIONS:
   LTScrypt:
-    :commit: 9a2b9765415faa616c8766b488ae99da38236c97
+    :commit: b5e3a433be3bb866dcd5286e69524cd9ff960228
     :git: https://github.com/vitock/scrypt
 
 SPEC CHECKSUMS:
