@@ -17,6 +17,9 @@
 		C49ED66527D5FE23009C8CBC /* Base64.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66427D5FE23009C8CBC /* Base64.swift */; };
 		C4B433A927EC68AC00F8E6DD /* words.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B433A827EC68AC00F8E6DD /* words.swift */; };
 		C4D9686C27E1AF0300710BDC /* Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D9686B27E1AF0300710BDC /* Tools.swift */; };
+		C4E38A052806BA9B0001ABE0 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4E38A042806BA9B0001ABE0 /* Accelerate.framework */; };
+		C4ECE55E280B060900400456 /* EC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4ECE55C280B060900400456 /* EC.swift */; };
+		C4ECE55F280B060900400456 /* number.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4ECE55D280B060900400456 /* number.swift */; };
 		C4F22D1927EB254B00BEEF1F /* keychaintool.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F22D1827EB254B00BEEF1F /* keychaintool.swift */; };
 /* End PBXBuildFile section */
 
@@ -52,7 +55,10 @@
 		C49ED68327D74935009C8CBC /* ECC-swift.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ECC-swift.h"; sourceTree = "<group>"; };
 		C4B433A827EC68AC00F8E6DD /* words.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = words.swift; sourceTree = "<group>"; };
 		C4D9686B27E1AF0300710BDC /* Tools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tools.swift; sourceTree = "<group>"; };
+		C4E38A042806BA9B0001ABE0 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 		C4E9FE0A280300B00006B723 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		C4ECE55C280B060900400456 /* EC.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EC.swift; sourceTree = "<group>"; };
+		C4ECE55D280B060900400456 /* number.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = number.swift; sourceTree = "<group>"; };
 		C4F22D1827EB254B00BEEF1F /* keychaintool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = keychaintool.swift; sourceTree = "<group>"; };
 		F6F546112C3001855EA315AA /* Pods-ECC-swift.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ECC-swift.release.xcconfig"; path = "Target Support Files/Pods-ECC-swift/Pods-ECC-swift.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -62,6 +68,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4E38A052806BA9B0001ABE0 /* Accelerate.framework in Frameworks */,
 				C43992A727D9AF0500350C96 /* libsecp256k1.a in Frameworks */,
 				7A13DBA2A294CD60C0F9CDC3 /* Pods_ECC_swift.framework in Frameworks */,
 			);
@@ -108,6 +115,7 @@
 		C49ED65A27D5FBA0009C8CBC /* ECC-swift */ = {
 			isa = PBXGroup;
 			children = (
+				C4ECE55B280B060900400456 /* EC */,
 				C49ED65B27D5FBA0009C8CBC /* main.swift */,
 				C43B06B627FEA870004E55FC /* test.swift */,
 				C4D9686B27E1AF0300710BDC /* Tools.swift */,
@@ -124,6 +132,7 @@
 		C49ED66627D743A0009C8CBC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C4E38A042806BA9B0001ABE0 /* Accelerate.framework */,
 				C43992A627D9AF0500350C96 /* libsecp256k1.a */,
 				783E780A82AFB247DBB67D10 /* Pods_ECC_swift.framework */,
 			);
@@ -136,6 +145,15 @@
 				C4E9FE0A280300B00006B723 /* main.swift */,
 			);
 			path = test;
+			sourceTree = "<group>";
+		};
+		C4ECE55B280B060900400456 /* EC */ = {
+			isa = PBXGroup;
+			children = (
+				C4ECE55C280B060900400456 /* EC.swift */,
+				C4ECE55D280B060900400456 /* number.swift */,
+			);
+			path = EC;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -250,7 +268,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/ECC\nmkdir -p \"${SRCROOT}/release\"\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" \"${SRCROOT}/release/ecc\"\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\n#cp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/ECC\n#mkdir -p \"${SRCROOT}/release\"\n#cp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" \"${SRCROOT}/release/ecc\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -262,6 +280,8 @@
 				C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */,
 				C41B6B0227E81C9D0073AD1D /* randomArt.swift in Sources */,
 				C49ED66527D5FE23009C8CBC /* Base64.swift in Sources */,
+				C4ECE55E280B060900400456 /* EC.swift in Sources */,
+				C4ECE55F280B060900400456 /* number.swift in Sources */,
 				C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */,
 				C43B06B727FEA870004E55FC /* test.swift in Sources */,
 				C49ED66327D5FBEC009C8CBC /* ECC.swift in Sources */,
