@@ -148,12 +148,13 @@ repeat{
             print("seckey [s] is specified,the key phrass [k] will be ignored");
         }
         else if(keyphrase != nil){
-            let dataKeyPhrase =  keyphrase!.data(using: .utf8);
+            var dataKeyPhrase =  keyphrase!.data(using: .utf8);
             
             // if length of keyphrase is less than 4 ,treat it as word count
             if dataKeyPhrase!.count < 4 {
                 let c =  Int(keyphrase!);
                 keyphrase =  WordList.genKeyPhrase(c!);
+                dataKeyPhrase = keyphrase!.data(using: .utf8)
             }
             if dataKeyPhrase!.count < 10{
                 print("key phrase is too short < 10")
