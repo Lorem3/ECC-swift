@@ -12,7 +12,13 @@ import Accelerate
 enum EC_Err :Error{
     case PubkeyLengthError
     case PubkeyFormatError
+    case PubkeyDataError
+    
+    case SeckeyDataError
 }
+
+typealias ECPubKey = EC.Point;
+typealias ECSecKey = EC.NU512
 
 class EC{
     typealias NU512 = vU512;
@@ -78,27 +84,127 @@ class EC{
         arr[7] = 0xFFFFFFFF;
         
         Order =  NU512(bytes: &arr, count: 64);
-        G = Point(zero256,zero256)
+        
+        
+        
+        // 79BE667E F9DCBBAC 55A06295 CE870B07 029BFCDB 2DCE28D9 59F2815B 16F81798
+        // 483ADA77 26A3C465 5DA4FBFC 0E1108A8 FD17B448 A6855419 9C47D08F FB10D4B8
+        var arrGx = [UInt32](repeating: 0, count: 64);
+        arrGx[0] = 0x16F81798
+        arrGx[1] = 0x59F2815B
+        arrGx[2] = 0x2DCE28D9
+        arrGx[3] = 0x029BFCDB
+        arrGx[4] = 0xCE870B07
+        arrGx[5] = 0x55A06295
+        arrGx[6] = 0xF9DCBBAC
+        arrGx[7] = 0x79BE667E
+        
+        var arrGy = [UInt32](repeating: 0, count: 64);
+        arrGy[0] = 0xFB10D4B8
+        arrGy[1] = 0x9C47D08F
+        arrGy[2] = 0xA6855419
+        arrGy[3] = 0xFD17B448
+        arrGy[4] = 0x0E1108A8
+        arrGy[5] = 0x5DA4FBFC
+        arrGy[6] = 0x26A3C465
+        arrGy[7] = 0x483ADA77
+        
+        
+//        let dx = Data(base64Encoded: "eb5mfvncu6xVoGKVzocLBwKb/NstzijZWfKBWxb4F5g=")!;
+//        let dy = Data(base64Encoded: "SDradyajxGVdpPv8DhEIqP0XtEimhVQZnEfQj/sQ1Lg=")!
+//        let Gx = dx.withUnsafeBytes { bf  in
+//            return NU512(bytes: bf.baseAddress!, count: 32);
+//        }
+//        let Gy = dy.withUnsafeBytes({ bf  in
+//            return NU512(bytes: bf.baseAddress!, count: 32);
+//        })
+        
+        let Gx = NU512(bytes: &arrGx, count: 64);
+        let Gy = NU512(bytes: &arrGy, count: 64);
+        
+        G = Point(Gx,Gy)
         ZeroPoint = Point(zero256,zero256);
         a = NU512(u32: 0);
         b = NU512(u32: 7);
     }
     
-    func readPubKey(str:String) throws -> Point{
-        let data = Data(base64Encoded: str)!;
+    
+    func serializePubKey(_ pub:ECPubKey) -> String{
+        var data = Data(repeating: 0, count: 33);
+        let bytes = pub.x.to32Bytes();
+        if pub.y.isOdd() {
+            data[0] = 3;
+        }else{
+            data[0] = 2;
+        }
+        
+        /// big Endian
+        for i in 0..<bytes.count{
+            data[i + 1] = bytes[31 - i];
+        }
+        return data.base64EncodedString();
+        
+        
+    }
+    
+    func readSecKey(_ base64String:String) throws -> ECSecKey{
+        let data = Data(base64Encoded: base64String)!;
+        return  try  data.withUnsafeBytes { bf in
+            if bf.count == 32{
+                var Xbuff = [UInt8](repeating: 0, count: 32);
+                memcpy(&Xbuff,bf.baseAddress!, 32);
+                Xbuff.reverse()
+                let x = NU512(bytes: &Xbuff, count: 32);
+                Xbuff.resetBytes(in: 0..<Xbuff.count);
+                return x
+                
+            }else{
+                throw EC_Err.SeckeyDataError
+            }
+        }
+    }
+    
+    
+    func readPubKey(_ base64str:String) throws -> Point{
+        let data = Data(base64Encoded: base64str)!;
         if(data.count == 33){
             return try data.withUnsafeBytes { bf  in
                 let first = bf[0];
                 if(first == 2 || first == 3){
-                    let x = NU512(bytes: bf.baseAddress!.advanced(by: 1), count: 32);
+                    var Xbuff = [UInt8](repeating: 0, count: 32);
+                    memcpy(&Xbuff,bf.baseAddress!.advanced(by: 1), 32);
+                    /// pubkey is big endian
+                    Xbuff.reverse();
+                    let x = NU512(bytes: &Xbuff, count: 32);
                     let P = getPoint(x: x,odd: first == 3);
+                    
+                    Xbuff.resetBytes(in: 0..<Xbuff.count);
+                    
+                    
                     return P;
                 }
                 
                 throw EC_Err.PubkeyFormatError
             }
         }else if(data.count == 65){
-            return ZeroPoint
+            return try data.withUnsafeBytes { bf  in
+                let first = bf[0];
+                if(first == 4){
+                    let x = NU512(bytes: bf.baseAddress!.advanced(by: 1), count: 32);
+                    let y = NU512(bytes: bf.baseAddress!.advanced(by: 33), count: 32);
+                    
+                    let P = getPoint(x: x,odd: y.isOdd());
+                    
+                    if(P.y == y){
+                        return P;
+                    }
+                    
+                    throw EC_Err.PubkeyDataError
+                    
+                }
+                
+                throw EC_Err.PubkeyFormatError
+            }
         }else{
             throw EC_Err.PubkeyLengthError
         }
@@ -137,10 +243,9 @@ class EC{
             }
             
             let tmp = (P.y * 2).exGCD(Prime);
-            k = (((P.x * P.x % Prime) * 3 + a) * tmp) % Prime
-            if(k.isNegtive()){
-                k += Prime;
-            }
+            k = ((((P.x * P.x % Prime) * 3 + a) % Prime) * tmp) % Prime
+            
+      
         }else{
             if P.x == Q.x{
                 R = ZeroPoint;
@@ -148,32 +253,36 @@ class EC{
             }
             
             let tmpz = (P.x + Prime - Q.x) % Prime
-//            if(tmpz.isNegtive()){
-//                tmpz += Prime
-//            }
-            
             let tmp = tmpz.exGCD(Prime);
-            
             let tmpDy = (P.y + Prime - Q.y) % Prime
-//            if(tmpDy.isNegtive()){
-//                tmpDy += Prime
-//            }
             
             k = (tmpDy * tmp) % Prime
-//            if k .isNegtive(){
-//                k += Prime
-//            }
+            
+//            P.x.printHex("PX");
+//            P.y.printHex("PY");
+//            Q.x.printHex("QX");
+//            Q.y.printHex("QY");
+//            k.printHex("k")
              
         }
-        var x = (k * k +  Prime * 3 - P.x - Q.x  ) % Prime
-//        if (x.isNegtive()){
-//            x += Prime
-//        }
+        var x = ((k  * k)  - P.x - Q.x) % Prime
+        if x .isNegtive() {
+            x = -x;
+        }
         
-        var y = ((k * (P.x + Prime - x ) % Prime) + Prime - P.y) % Prime;
-//        if(y.isNegtive()){
-//            y += Prime
-//        }
+        let y = ((k * ((P.x + Prime - x ) % Prime)) % Prime + Prime - P.y) % Prime;
+ 
+        
+//        P.x.printHex("qx");
+//        Q.x.printHex("px");
+//        k.printHex("k");
+//
+//        print("kk",(k * k).highHexString())
+//        (k * k).printHex("kk2");
+//        x.printHex("xxx");
+//        y.printHex("yyy");
+        
+        
         R = Point(x,y)
         
     }
@@ -187,11 +296,11 @@ class EC{
     }
     
     internal func _pointTimes(P:Point, s:NU512,R: inout Point){
-        if s.isN0(){
+        if s == 0{
             R = ZeroPoint
             return;
         }
-        if s.isN1(){
+        if s == 1{
             R = P
             return;
         }
@@ -201,12 +310,12 @@ class EC{
             return;
         }
         
-        let  s_0 = s.v.0[0] & 1;
+        
         let  s_2 = s / 2;
  
         _pointTimes(P: P , s: s_2, R: &R);
         pointAdd(P: R , Q: R , R: &R)
-        if s_0 == 1{
+        if s.isOdd() {
             pointAdd(P: R , Q: P , R: &R)
         }
     }
@@ -250,6 +359,7 @@ extension EC.NU512{
     
     typealias NS512 = vS512
     
+    /// little endian
     init(  bytes:UnsafeRawPointer,count:Int){
         self.init();
         self.fill(bytes:bytes, count: count);
@@ -345,15 +455,7 @@ extension EC.NU512{
     @inline(__always) func isSameNumber(_ y:NU512) -> Bool{
         return self.v.0 == y.v.0 && self.v.1 == y.v.1 && self.v.2 == y.v.2 && self.v.3 == y.v.3
     }
-    
-    @inline(__always)  func isN0() -> Bool{
-        return self.isSameNumber(NU512.zeroN())
-        
-    }
-    @inline(__always)  func isN1() -> Bool{
-        return self.isSameNumber(NU512.oneN())
-        
-    }
+
       
     
     /// a * X = 1 mod p
@@ -391,7 +493,7 @@ extension EC.NU512{
         var k0 = 0;
         while k0 < k {
             t = (t * t) % p;
-            if t.isN1(){
+            if t == 1{
                 return true
             }
             
@@ -399,11 +501,9 @@ extension EC.NU512{
         }
         
         
-        let p1 = p - NU512.oneN()
+//        let p1 = p - NU512.oneN()
         
-        
-        
-        return t.isN1()
+        return t == 1
         
 
     }
@@ -436,10 +536,7 @@ extension EC.NU512{
         
         let r0 = R;
         R = (R * R) % p;
-        if (R.isNegtive()){
-            r0.printHex();
-            R.printHex();
-        }
+       
         
         if(s_a == 1){
             R = (R * a) % p
@@ -465,7 +562,7 @@ extension EC.NU512{
     /// find x ^ 2 = self mode P
     func cipolla_sqrt(P:NU512) -> NU512{
         let n = self;
-        if n.isN0(){
+        if n == 0{
             return NU512.zeroN()
         }
         
@@ -480,9 +577,6 @@ extension EC.NU512{
         repeat{
             a = NU512(u32: arc4random_uniform(10000) + 1) ;//
             A2_N = (a * a + P - n + P) % P
-            if(A2_N.isNegtive()){
-                A2_N += P;
-            }
         }while eulerJudge(a: A2_N, p: P)
         
         let n1 = NU512(u32: 1);
@@ -499,7 +593,7 @@ extension EC.NU512{
     
     func _pow2(_ xy:ComplexNum,_ A2_N:NU512,_ k:NU512,_ p:NU512,_ Result:inout ComplexNum){
         
-        if k.isN1(){
+        if k == 1{
             Result = xy
             return ;
         }else if(k == 2){
@@ -543,10 +637,10 @@ extension EC.NU512{
     func exGCD(_ P: NU512) -> NU512{
         let a = self;
         
-        if a.isN1(){
+        if a == 1{
             return NU512.oneN()
         }
-        if a.isN0(){
+        if a == 0{
             return NU512.zeroN();
         }
         
@@ -554,11 +648,29 @@ extension EC.NU512{
         
         aa = aa % P;
         
+
+        
         var P2 = P;
         let m = _exGCD(a: &aa , b: &P2);
+        let r0:NU512
         
-        let r0 = (m.0.value % P  + P) % P ;
+        
+        
+        if m.0.isNegtive == 1{
+            r0 =  (-m.0.value  + P) % P
+        }else{
+            r0 = (m.0.value % P  + P) % P ;
+            
+        }
+        
+    
+        
         return r0
+        
+        
+        
+        
+        
         
     }
     
@@ -568,6 +680,8 @@ extension EC.NU512{
     typealias Matrix4 = (NSign512,NSign512,NSign512,NSign512)
     ///
     func _exGCD(a:inout NU512,b:inout NU512) -> Matrix4 {
+         
+        
          // a * x = b mod 1;
         /**
          *    | xn  1 |  ... | x1  1|    |a |  = |1|
@@ -579,7 +693,7 @@ extension EC.NU512{
         var q = NU512.zeroN();
         b.divide(a, result: &q , remain: &s);
 
-        if s.isN1(){
+        if s == 1{
             
             return (
                 (1,q),
@@ -591,7 +705,7 @@ extension EC.NU512{
 //            return ((-q),NU512.oneN(),NU512.oneN(),NU512.zeroN())
         }
 
-        else if s.isN0(){
+        else if s == 0 {
             
             return (
                 (0,NU512.zeroN()),
@@ -691,11 +805,11 @@ extension EC{
             }
         }
         
-        if true{
-            for _ in 0..<13{
+        if false{
+            for _ in 0..<222{
                 
                 var bytes = [UInt8](repeating: 0, count: 64);
-                arc4random_buf(&bytes, bytes.count);
+                arc4random_buf(&bytes, 32);
                 let n = NU512(bytes: bytes, count: bytes.count);
                 
                 
@@ -713,29 +827,122 @@ extension EC{
             }
         }
         
-        
-         
-        
         // G
+        if false{
+            // 79BE667E F9DCBBAC 55A06295 CE870B07 029BFCDB 2DCE28D9 59F2815B 16F81798
+            var arr = [UInt32](repeating: 0, count: 16);
+            arr[0] = 0x16F81798;
+            arr[1] = 0x59F2815B;
+            arr[2] = 0x2DCE28D9;
+            arr[3] = 0x029BFCDB;
+            arr[4] = 0xCE870B07;
+            arr[5] = 0x55A06295;
+            arr[6] = 0xF9DCBBAC;
+            arr[7] = 0x79BE667E;
+            
+            let x = NU512(bytes: &arr , count: 64);
+             
+            let p = getPoint(x: x,odd: false);
+            p.x.printHex("calx")
+            p.y.printHex("caly")
+            
+            G.x.printHex("gx")
+            G.y.printHex("gy")
+            
+            print("------")
+        }
         
-        // 79BE667E F9DCBBAC 55A06295 CE870B07 029BFCDB 2DCE28D9 59F2815B 16F81798
-        var arr = [UInt32](repeating: 0, count: 16);
-        arr[0] = 0x16F81798;
-        arr[1] = 0x59F2815B;
-        arr[2] = 0x2DCE28D9;
-        arr[3] = 0x029BFCDB;
-        arr[4] = 0xCE870B07;
-        arr[5] = 0x55A06295;
-        arr[6] = 0xF9DCBBAC;
-        arr[7] = 0x79BE667E;
         
-        let x = NU512(bytes: &arr , count: 64);
+        if false{
+            
+           let data = Data(base64Encoded: "BHm+Zn753LusVaBilc6HCwcCm/zbLc4o2VnygVsW+BeYSDradyajxGVdpPv8DhEIqP0XtEimhVQZnEfQj/sQ1Lg=")!;
+           
+           var x = [UInt8](repeating: 0, count: 32);
+           var y = [UInt8](repeating: 0, count: 32);
+           data.withUnsafeBytes({ bf  in
+               for i in 0..<32{
+                   x[i] = bf[i + 1]
+                   y[i] = bf[i + 33]
+               }
+           })
+           
+           x.reverse()
+           y.reverse()
+           
+           var data2 = Data(repeating: 0, count: 65)
+           data2[0] = data[0];
+           for i in 0..<32{
+               data2[i + 1] = x[i];
+               data2[i + 33] = y[i];
+           }
+           
+           
+            
+           let PP = try! self.readPubKey( data2.base64EncodedString())
+           
+           
+           print(data2.base64EncodedString())
+           print(PP.x.hexString())
+           print(PP.y.hexString())
+        }
          
-        let p = getPoint(x: x,odd: false);
-//        p.x.printHex()
-        p.y.printHex()
+        
+        if false{
+ 
+            
+            let G2 = getPoint(x: G.x,odd: G.y.isOdd())
+            print(G.x == G2.x ,G.y == G2.y)
+            
+            
+            let S = NU512(u32: 3);
+            var P1 = pointTimes(P: G , s: S);
+            
+            print("Final.x",P1.x.hexString())
+            print("Final.y",P1.y.hexString())
+ 
+        }
+        
+//        G.x.printHex()
+//        G.y.printHex()
+//        Prime.printHex("prime");
+        
+        
+        if true {
+            
+            let kp = try! LTEccTool.shared.genKeyPair(nil , keyPhrase: nil);
+            for i in 0..<1000{
+                
+                let k = try! readSecKey(kp.priKey);
+                
+                
+                let P = pointTimes(P: G , s: k);
+                let pubstr = serializePubKey(P);
+                
+                let Pub =  try! readPubKey(pubstr);
+                
+                print(P.x == Pub.x )
+                print(P.y == Pub.y )
+                
+                
+                
+                
+                print(kp.pubKey)
+                print(pubstr)
+                
+                if pubstr != kp.pubKey{
+                    print(kp.pubKey)
+                    print(pubstr)
+                    print("eeeeoooor");
+                    break;
+                }
+                
+          
+            
+            }
+            
+            
+        }
+        
+        
     }
-    
-    
-     
 }

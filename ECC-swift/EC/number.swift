@@ -238,8 +238,11 @@ extension EC.NU512{
         self.v.0[0] = u32;
     }
     
-    func printHex(ln:Int = #line){
-        print("line:\(ln)",hexString())
+    func isOdd() -> Bool{
+        return (self.intValue & 1) == 1;
+    }
+    func printHex(_ msg:String = "", ln:Int = #line){
+        print("line:\(ln) \(msg)",hexString())
     }
     
     
@@ -253,16 +256,6 @@ extension EC.NU512{
         s = String(format: "%08x", n.v.3[1]) + s
         s = String(format: "%08x", n.v.3[2]) + s
         s = String(format: "%08x", n.v.3[3]) + s
-//        s = String(format: " %08x", n.v.2[0]) + s
-//        s = String(format: " %08x", n.v.2[1]) + s
-//        s = String(format: " %08x", n.v.2[2]) + s
-//        s = String(format: " %08x", n.v.2[3]) + s
-//        s = String(format: " %08x", n.v.3[0]) + s
-//        s = String(format: " %08x", n.v.3[1]) + s
-//        s = String(format: " %08x", n.v.3[2]) + s
-//        s = String(format: " %08x", n.v.3[3]) + s
-        
-//        print(s);
          
          return s;
     }
@@ -277,18 +270,38 @@ extension EC.NU512{
         s = String(format: "%08x", n.v.1[1]) + s
         s = String(format: "%08x", n.v.1[2]) + s
         s = String(format: "%08x", n.v.1[3]) + s
-//        s = String(format: " %08x", n.v.2[0]) + s
-//        s = String(format: " %08x", n.v.2[1]) + s
-//        s = String(format: " %08x", n.v.2[2]) + s
-//        s = String(format: " %08x", n.v.2[3]) + s
-//        s = String(format: " %08x", n.v.3[0]) + s
-//        s = String(format: " %08x", n.v.3[1]) + s
-//        s = String(format: " %08x", n.v.3[2]) + s
-//        s = String(format: " %08x", n.v.3[3]) + s
-        
-//        print(s);
+
          
          return s;
+    }
+    
+    func to32Bytes() -> [UInt8]{
+        var r = [UInt8](repeating: 0, count: 32);
+        let n = self;
+        var iStart =  0;
+        
+        for j in 0...3{
+            withUnsafeBytes(of: n.v.0[j]) { bf  in
+                for i in 0..<bf.count{
+                    r[iStart + i ] = bf[i]
+                }
+                iStart += bf.count
+            }
+        }
+        for j in 0...3{
+            withUnsafeBytes(of: n.v.1[j]) { bf  in
+                for i in 0..<bf.count{
+                    r[iStart + i ] = bf[i]
+                }
+                iStart += bf.count
+            }
+        }
+        
+        
+        return r;
+        
+        
+        
     }
     
     
