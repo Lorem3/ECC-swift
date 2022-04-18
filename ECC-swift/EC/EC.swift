@@ -19,6 +19,7 @@ enum EC_Err :Error{
 
 typealias ECPubKey = EC.Point;
 typealias ECSecKey = EC.NU512
+typealias ECKeyPair = (pubKey:String,priKey:String)
 
 class EC{
     typealias NU512 = vU512;
@@ -318,6 +319,30 @@ class EC{
         if s.isOdd() {
             pointAdd(P: R , Q: P , R: &R)
         }
+    }
+    
+    func generateKeyPair() -> ECKeyPair{
+        var keyBuffer = [UInt8].init(repeating: 0, count: 32);
+        var isValid = false;
+        repeat{
+            arc4random_buf(&keyBuffer, keyBuffer.count);
+            for i in keyBuffer{
+                if i != 0 {
+                    isValid = true;
+                    break;
+                }
+            }
+        }while !isValid
+        
+        let secKey = NU512(bytes: &keyBuffer , count: 32);
+        let pubKey = pointTimes(P: G , s: secKey);
+        
+        let data = Data(bytesNoCopy: &keyBuffer, count: keyBuffer.count, deallocator: Data.Deallocator.none)
+        let strKey = data.base64EncodedString();
+        keyBuffer.resetBytes(in: 0..<keyBuffer.count);
+        
+        let pubkeyStr = serializePubKey(pubKey);
+        return (pubKey:pubkeyStr,priKey:strKey)
     }
 
     
@@ -908,36 +933,17 @@ extension EC{
         
         
         if true {
-            
-            let kp = try! LTEccTool.shared.genKeyPair(nil , keyPhrase: nil);
-            for i in 0..<1000{
-                
-                let k = try! readSecKey(kp.priKey);
-                
-                
-                let P = pointTimes(P: G , s: k);
-                let pubstr = serializePubKey(P);
-                
-                let Pub =  try! readPubKey(pubstr);
-                
-                print(P.x == Pub.x )
-                print(P.y == Pub.y )
-                
-                
-                
-                
-                print(kp.pubKey)
-                print(pubstr)
-                
-                if pubstr != kp.pubKey{
-                    print(kp.pubKey)
-                    print(pubstr)
-                    print("eeeeoooor");
-                    break;
-                }
-                
-          
-            
+            var kp:ECKeyPair;
+            for _ in 0..<5000000{
+                kp = generateKeyPair()
+//                let kp2 = try! LTEccTool.shared.genKeyPair(kp.priKey , keyPhrase: nil);
+//                print(kp)
+//                if kp.pubKey != kp.pubKey ||  kp2.pubKey != kp2.pubKey{
+//                    print(kp)
+//                    print(kp2)
+//                    print("eeeeoooor");
+//                    break;
+//                }
             }
             
             
