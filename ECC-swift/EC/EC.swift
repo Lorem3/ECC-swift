@@ -148,13 +148,21 @@ class EC{
         
     }
     
+    /// big-Endian
     func readSecKey(_ base64String:String) throws -> ECSecKey{
-        let data = Data(base64Encoded: base64String)!;
+        let data = try LTBase64.base64Decode(base64String)
+        
         return  try  data.withUnsafeBytes { bf in
             if bf.count == 32{
                 var Xbuff = [UInt8](repeating: 0, count: 32);
                 memcpy(&Xbuff,bf.baseAddress!, 32);
                 Xbuff.reverse()
+                
+                if !isSecKeyByteValid(byte32: Xbuff) {
+                    throw EC_Err.SeckeyDataError
+                }
+                
+                
                 let x = NU512(bytes: &Xbuff, count: 32);
                 Xbuff.resetBytes(in: 0..<Xbuff.count);
                 return x
@@ -199,11 +207,8 @@ class EC{
                     if(P.y == y){
                         return P;
                     }
-                    
                     throw EC_Err.PubkeyDataError
-                    
                 }
-                
                 throw EC_Err.PubkeyFormatError
             }
         }else{
@@ -256,14 +261,8 @@ class EC{
             let tmpz = (P.x + Prime - Q.x) % Prime
             let tmp = tmpz.exGCD(Prime);
             let tmpDy = (P.y + Prime - Q.y) % Prime
-            
+
             k = (tmpDy * tmp) % Prime
-            
-//            P.x.printHex("PX");
-//            P.y.printHex("PY");
-//            Q.x.printHex("QX");
-//            Q.y.printHex("QY");
-//            k.printHex("k")
              
         }
         var x = ((k  * k)  - P.x - Q.x) % Prime
@@ -273,17 +272,6 @@ class EC{
         
         let y = ((k * ((P.x + Prime - x ) % Prime)) % Prime + Prime - P.y) % Prime;
  
-        
-//        P.x.printHex("qx");
-//        Q.x.printHex("px");
-//        k.printHex("k");
-//
-//        print("kk",(k * k).highHexString())
-//        (k * k).printHex("kk2");
-//        x.printHex("xxx");
-//        y.printHex("yyy");
-        
-        
         R = Point(x,y)
         
     }
@@ -321,23 +309,53 @@ class EC{
         }
     }
     
+    
+    /**
+     *  SecKey > 0 && SecKey < Order
+     */
+    func isSecKeyByteValid(byte32:UnsafeRawPointer)->Bool{
+        
+        let order = Order.to32Bytes();
+        let D1 = Data(bytes: order, count: 32)
+        
+        let D2 = Data(bytes: byte32, count: 32)
+        
+        print("D1-Order0 ",Order.hexString());
+        print("D1-Order_ ",D1.tohexString());
+        print("D2_SecKey ",D2.tohexString());
+         
+        var isSmallerThanOrder = false
+        var isZero = true
+        for n in 0..<32{
+            let i = 31 - n ;
+            let v1 = byte32.load(fromByteOffset: i , as: UInt8.self)
+            if v1 < order[i]{
+                isSmallerThanOrder = true
+                break;
+            }
+        }
+        for i in 0..<32{
+            if byte32.load(fromByteOffset: i , as: UInt8.self) != 0{
+                isZero = false;
+                break;
+            }
+        }
+        return !isZero && isSmallerThanOrder;
+    }
     func generateKeyPair() -> ECKeyPair{
         var keyBuffer = [UInt8].init(repeating: 0, count: 32);
-        var isValid = false;
         repeat{
             arc4random_buf(&keyBuffer, keyBuffer.count);
-            for i in keyBuffer{
-                if i != 0 {
-                    isValid = true;
-                    break;
-                }
-            }
-        }while !isValid
+        }while !isSecKeyByteValid(byte32: keyBuffer)
+        
         
         let secKey = NU512(bytes: &keyBuffer , count: 32);
         let pubKey = pointTimes(P: G , s: secKey);
         
+        
+        keyBuffer.reverse();
         let data = Data(bytesNoCopy: &keyBuffer, count: keyBuffer.count, deallocator: Data.Deallocator.none)
+        
         let strKey = data.base64EncodedString();
         keyBuffer.resetBytes(in: 0..<keyBuffer.count);
         
@@ -932,9 +950,9 @@ extension EC{
 //        Prime.printHex("prime");
         
         
-        if true {
+        if false {
             var kp:ECKeyPair;
-            for _ in 0..<5000000{
+            for _ in 0..<44{
                 kp = generateKeyPair()
 //                let kp2 = try! LTEccTool.shared.genKeyPair(kp.priKey , keyPhrase: nil);
 //                print(kp)
@@ -945,6 +963,46 @@ extension EC{
 //                    break;
 //                }
             }
+        }
+        
+        if true{
+            do{
+                let p1 = try readSecKey("/////////////////////rqu3OavSKA7v9JejNA2QU0=");
+                
+                Lprint(p1);
+            }
+            catch let e {
+                Lprint(e)
+            }
+            
+            do{
+                let p1 = try readSecKey("/////////////////////rqu3OavSKA7v9JejNA2QUE=");
+                Lprint(p1);
+            }
+            catch let e {
+                Lprint(e)
+            }
+            
+            
+            
+            
+            do{
+                let p1 = try readSecKey("/////////////////////rqu3OavSKA7v9JejNA2QUA=");
+                Lprint(p1.hexString());
+            }
+            catch let e {
+                Lprint(e)
+            }
+            
+            do{
+                let p1 = try readSecKey("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+                Lprint(p1.hexString());
+            }
+            catch let e {
+                Lprint(e)
+            }
+            
+            print("KP",generateKeyPair())
             
             
         }
