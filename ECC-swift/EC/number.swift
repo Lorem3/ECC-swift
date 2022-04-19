@@ -296,11 +296,16 @@ extension EC.NU512{
                 iStart += bf.count
             }
         }
-        
-        
         return r;
-        
-        
+    }
+    
+    mutating func clear(){
+    
+        let msk = SIMDMask<vUInt32.MaskStorage>.init(repeating: true);
+        self.v.0.replace(with: 0, where: msk);
+        self.v.1.replace(with: 0, where: msk);
+        self.v.2.replace(with: 0, where: msk);
+        self.v.3.replace(with: 0, where: msk);
         
     }
     

@@ -7,6 +7,7 @@
 
 import Foundation
 import Accelerate
+import CommonCrypto
 
 
 enum EC_Err :Error{
@@ -15,13 +16,17 @@ enum EC_Err :Error{
     case PubkeyDataError
     
     case SeckeyDataError
+    case SeckeyDataNotValid
 }
 
 typealias ECPubKey = EC.Point;
-typealias ECSecKey = EC.NU512
+typealias ECSecKey = UnsafeMutableRawPointer
 typealias ECKeyPair = (pubKey:String,priKey:String)
 
+
 class EC{
+    let pubKeyBufferLength = 33;
+    let secKeyBufferLength = 32;
     typealias NU512 = vU512;
     struct Point{
         var x:NU512
@@ -129,27 +134,50 @@ class EC{
         b = NU512(u32: 7);
     }
     
-    
-    func serializePubKey(_ pub:ECPubKey) -> String{
-        var data = Data(repeating: 0, count: 33);
-        let bytes = pub.x.to32Bytes();
-        if pub.y.isOdd() {
-            data[0] = 3;
-        }else{
-            data[0] = 2;
+    func serializeSecKeyBytes(_ bytes  :UnsafeRawPointer) -> String{
+        var data = Data(repeating: 0, count: 32);
+        /// big Endian
+        for i in 0..<32{
+            let v = bytes.load(fromByteOffset: 31 - i , as: UInt8.self);
+            data[i ] = v;
         }
+        let r = data.base64EncodedString();
+        data.resetBytes(in: 0..<data.count)
+        return r ;
+    }
+    
+    func serializeSecKey(_ sec:NU512) -> String{
+        var data = Data(repeating: 0, count: 32);
+        let bytes = sec.to32Bytes();
         
         /// big Endian
         for i in 0..<bytes.count{
-            data[i + 1] = bytes[31 - i];
+            data[i ] = bytes[31 - i];
         }
         return data.base64EncodedString();
+    }
+    func serializePubKey(_ pub:ECPubKey,toBytes:UnsafeMutableRawPointer){
+        let bytes = pub.x.to32Bytes();
+        let p = toBytes.bindMemory(to: UInt8.self, capacity: pubKeyBufferLength);
+        if pub.y.isOdd() {
+            p[0] = 3;
+        }else{
+            p[0] = 2;
+        }
         
-        
+        for i in 0..<secKeyBufferLength{
+            p[i + 1] = bytes[secKeyBufferLength - 1 - i ];
+        }
+    }
+    func serializePubKey(_ pub:ECPubKey) -> String{
+        var bf = [UInt8](repeating: 0, count: pubKeyBufferLength);
+        serializePubKey(pub , toBytes: &bf);
+        let data = Data(bytesNoCopy: &bf , count: pubKeyBufferLength, deallocator: Data.Deallocator.none);
+        return data.base64EncodedString();
     }
     
     /// big-Endian
-    func readSecKey(_ base64String:String) throws -> ECSecKey{
+    func readSecKey(_ base64String:String,keyOut:ECSecKey) throws {
         let data = try LTBase64.base64Decode(base64String)
         
         return  try  data.withUnsafeBytes { bf in
@@ -162,10 +190,8 @@ class EC{
                     throw EC_Err.SeckeyDataError
                 }
                 
-                
-                let x = NU512(bytes: &Xbuff, count: 32);
+                memcpy(keyOut, Xbuff, 32);
                 Xbuff.resetBytes(in: 0..<Xbuff.count);
-                return x
                 
             }else{
                 throw EC_Err.SeckeyDataError
@@ -173,46 +199,49 @@ class EC{
         }
     }
     
-    
-    func readPubKey(_ base64str:String) throws -> Point{
-        let data = Data(base64Encoded: base64str)!;
-        if(data.count == 33){
-            return try data.withUnsafeBytes { bf  in
-                let first = bf[0];
-                if(first == 2 || first == 3){
-                    var Xbuff = [UInt8](repeating: 0, count: 32);
-                    memcpy(&Xbuff,bf.baseAddress!.advanced(by: 1), 32);
-                    /// pubkey is big endian
-                    Xbuff.reverse();
-                    let x = NU512(bytes: &Xbuff, count: 32);
-                    let P = getPoint(x: x,odd: first == 3);
-                    
-                    Xbuff.resetBytes(in: 0..<Xbuff.count);
-                    
-                    
+    func readPubKey(_ buffer:UnsafeRawPointer, count:Int) throws -> ECPubKey{
+        if(count == 33){
+            let bf = buffer.bindMemory(to: UInt8.self, capacity: count);
+            let first = bf[0];
+            if(first == 2 || first == 3){
+                var Xbuff = [UInt8](repeating: 0, count: 32);
+                memcpy(&Xbuff,bf.advanced(by: 1), 32);
+                /// pubkey is big endian
+                Xbuff.reverse();
+                let x = NU512(bytes: &Xbuff, count: 32);
+                let P = getPoint(x: x,odd: first == 3);
+                
+                Xbuff.resetBytes(in: 0..<Xbuff.count);
+                
+                
+                return P;
+            }
+            
+            throw EC_Err.PubkeyFormatError
+        }else if(count == 65){
+            let bf = buffer.bindMemory(to: UInt8.self, capacity: count);
+            let first = bf[0];
+            if(first == 4){
+                let x = NU512(bytes: bf.advanced(by: 1), count: 32);
+                let y = NU512(bytes: bf.advanced(by: 33), count: 32);
+                
+                let P = getPoint(x: x,odd: y.isOdd());
+                
+                if(P.y == y){
                     return P;
                 }
-                
-                throw EC_Err.PubkeyFormatError
+                throw EC_Err.PubkeyDataError
             }
-        }else if(data.count == 65){
-            return try data.withUnsafeBytes { bf  in
-                let first = bf[0];
-                if(first == 4){
-                    let x = NU512(bytes: bf.baseAddress!.advanced(by: 1), count: 32);
-                    let y = NU512(bytes: bf.baseAddress!.advanced(by: 33), count: 32);
-                    
-                    let P = getPoint(x: x,odd: y.isOdd());
-                    
-                    if(P.y == y){
-                        return P;
-                    }
-                    throw EC_Err.PubkeyDataError
-                }
-                throw EC_Err.PubkeyFormatError
-            }
+            throw EC_Err.PubkeyFormatError
         }else{
             throw EC_Err.PubkeyLengthError
+        }
+    }
+    func readPubKey(_ base64str:String) throws -> Point{
+        let data = Data(base64Encoded: base64str)!;
+        
+        return data.withUnsafeBytes { bf  in
+            return try! readPubKey(bf.baseAddress!, count: bf.count);
         }
     }
     
@@ -316,13 +345,11 @@ class EC{
     func isSecKeyByteValid(byte32:UnsafeRawPointer)->Bool{
         
         let order = Order.to32Bytes();
-        let D1 = Data(bytes: order, count: 32)
-        
-        let D2 = Data(bytes: byte32, count: 32)
-        
-        print("D1-Order0 ",Order.hexString());
-        print("D1-Order_ ",D1.tohexString());
-        print("D2_SecKey ",D2.tohexString());
+//        let D1 = Data(bytes: order, count: 32)
+//        let D2 = Data(bytes: byte32, count: 32)
+//        print("D1-Order0 ",Order.hexString());
+//        print("D1-Order_ ",D1.tohexString());
+//        print("D2_SecKey ",D2.tohexString());
          
         var isSmallerThanOrder = false
         var isZero = true
@@ -342,16 +369,27 @@ class EC{
         }
         return !isZero && isSmallerThanOrder;
     }
-    func generateKeyPair() -> ECKeyPair{
-        var keyBuffer = [UInt8].init(repeating: 0, count: 32);
-        repeat{
-            arc4random_buf(&keyBuffer, keyBuffer.count);
-        }while !isSecKeyByteValid(byte32: keyBuffer)
+    
+    /// sha512(DH.X)
+    func ecdh(secKeyA: ECSecKey,pubKeyB:ECPubKey,outBf64:UnsafeMutableRawPointer){
         
+        var s = NU512(bytes: secKeyA, count: 32);
+        let dh = pointTimes(P: pubKeyB, s: s);
+        s.clear();
+        
+        var x32 = dh.x.to32Bytes()
+        // big-endian
+        x32.reverse();
+        CC_SHA512(x32, 32, outBf64.bindMemory(to: UInt8.self, capacity: 32));
+        x32.resetBytes(in: 0..<x32.count)
+    }
+    
+    func generateKeyPair(_ secKey:String? = nil) -> ECKeyPair{
+        var keyBuffer = [UInt8].init(repeating: 0, count: 32);
+        generateSecBytes(outBf32: &keyBuffer)
         
         let secKey = NU512(bytes: &keyBuffer , count: 32);
         let pubKey = pointTimes(P: G , s: secKey);
-        
         
         keyBuffer.reverse();
         let data = Data(bytesNoCopy: &keyBuffer, count: keyBuffer.count, deallocator: Data.Deallocator.none)
@@ -361,6 +399,29 @@ class EC{
         
         let pubkeyStr = serializePubKey(pubKey);
         return (pubKey:pubkeyStr,priKey:strKey)
+    }
+    
+    func generateSecBytes(outBf32:UnsafeMutableRawPointer){
+        
+        var tmp:[UInt8] = [UInt8](repeating: 0 , count: 64);
+        var tmpdata:[UInt8] = [UInt8](repeating: 0 , count: 128);
+        
+        repeat{
+            arc4random_buf(&tmp , 64);
+            arc4random_buf(&tmpdata , 128);
+            CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),tmp ,64,tmpdata,128,outBf32);
+        }while !isSecKeyByteValid(byte32: outBf32)
+    }
+    func createPubKey(secBytes32:ECSecKey) throws -> ECPubKey{
+        
+        if !isSecKeyByteValid(byte32: secBytes32){
+            throw EC_Err.SeckeyDataNotValid
+        }
+        var s = NU512(bytes: secBytes32, count: 32);
+        let P = pointTimes(P: G , s: s);
+        s.clear()
+        
+        return P;
     }
 
     
@@ -820,193 +881,3 @@ extension EC.NU512{
 
 
 
-
-extension EC{
-    func test(){
-        print("------")
-        
-        if false{
-            for _ in 0..<10{
-                let m = NU512(u32:5);
-                let n = NU512(u32:(arc4random_uniform(Order.intValue )));
-                
-                let M = pointTimes(P: G , s: m);
-                let N = pointTimes(P: G , s: n);
-                
-                let E1 = pointTimes(P: M , s: n);
-                let E2 = pointTimes(P: N , s: m);
-                let E3 = pointTimes(P: G , s: m * n);
-                if(E1 != E2 || E3 != E2){
-                    print("33333333333333")
-                    print(m.intValue,n.intValue)
-                    exit(1)
-                    break;
-                }else{
-                    print("equal",m.intValue,n.intValue)
-                }
-                
-            }
-        }
-        
-        if false{
-            for _ in 0..<222{
-                
-                var bytes = [UInt8](repeating: 0, count: 64);
-                arc4random_buf(&bytes, 32);
-                let n = NU512(bytes: bytes, count: bytes.count);
-                
-                
-                let N = pointTimes(P: G , s: n);
-                
-                let t = getPoint(x: N.x);
-                
-                if(t.x == N.x || t.x + N.x == Prime){
-        
-                }else{
-                    exit(3)
-                }
-                 
-                
-            }
-        }
-        
-        // G
-        if false{
-            // 79BE667E F9DCBBAC 55A06295 CE870B07 029BFCDB 2DCE28D9 59F2815B 16F81798
-            var arr = [UInt32](repeating: 0, count: 16);
-            arr[0] = 0x16F81798;
-            arr[1] = 0x59F2815B;
-            arr[2] = 0x2DCE28D9;
-            arr[3] = 0x029BFCDB;
-            arr[4] = 0xCE870B07;
-            arr[5] = 0x55A06295;
-            arr[6] = 0xF9DCBBAC;
-            arr[7] = 0x79BE667E;
-            
-            let x = NU512(bytes: &arr , count: 64);
-             
-            let p = getPoint(x: x,odd: false);
-            p.x.printHex("calx")
-            p.y.printHex("caly")
-            
-            G.x.printHex("gx")
-            G.y.printHex("gy")
-            
-            print("------")
-        }
-        
-        
-        if false{
-            
-           let data = Data(base64Encoded: "BHm+Zn753LusVaBilc6HCwcCm/zbLc4o2VnygVsW+BeYSDradyajxGVdpPv8DhEIqP0XtEimhVQZnEfQj/sQ1Lg=")!;
-           
-           var x = [UInt8](repeating: 0, count: 32);
-           var y = [UInt8](repeating: 0, count: 32);
-           data.withUnsafeBytes({ bf  in
-               for i in 0..<32{
-                   x[i] = bf[i + 1]
-                   y[i] = bf[i + 33]
-               }
-           })
-           
-           x.reverse()
-           y.reverse()
-           
-           var data2 = Data(repeating: 0, count: 65)
-           data2[0] = data[0];
-           for i in 0..<32{
-               data2[i + 1] = x[i];
-               data2[i + 33] = y[i];
-           }
-           
-           
-            
-           let PP = try! self.readPubKey( data2.base64EncodedString())
-           
-           
-           print(data2.base64EncodedString())
-           print(PP.x.hexString())
-           print(PP.y.hexString())
-        }
-         
-        
-        if false{
- 
-            
-            let G2 = getPoint(x: G.x,odd: G.y.isOdd())
-            print(G.x == G2.x ,G.y == G2.y)
-            
-            
-            let S = NU512(u32: 3);
-            var P1 = pointTimes(P: G , s: S);
-            
-            print("Final.x",P1.x.hexString())
-            print("Final.y",P1.y.hexString())
- 
-        }
-        
-//        G.x.printHex()
-//        G.y.printHex()
-//        Prime.printHex("prime");
-        
-        
-        if false {
-            var kp:ECKeyPair;
-            for _ in 0..<44{
-                kp = generateKeyPair()
-//                let kp2 = try! LTEccTool.shared.genKeyPair(kp.priKey , keyPhrase: nil);
-//                print(kp)
-//                if kp.pubKey != kp.pubKey ||  kp2.pubKey != kp2.pubKey{
-//                    print(kp)
-//                    print(kp2)
-//                    print("eeeeoooor");
-//                    break;
-//                }
-            }
-        }
-        
-        if true{
-            do{
-                let p1 = try readSecKey("/////////////////////rqu3OavSKA7v9JejNA2QU0=");
-                
-                Lprint(p1);
-            }
-            catch let e {
-                Lprint(e)
-            }
-            
-            do{
-                let p1 = try readSecKey("/////////////////////rqu3OavSKA7v9JejNA2QUE=");
-                Lprint(p1);
-            }
-            catch let e {
-                Lprint(e)
-            }
-            
-            
-            
-            
-            do{
-                let p1 = try readSecKey("/////////////////////rqu3OavSKA7v9JejNA2QUA=");
-                Lprint(p1.hexString());
-            }
-            catch let e {
-                Lprint(e)
-            }
-            
-            do{
-                let p1 = try readSecKey("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
-                Lprint(p1.hexString());
-            }
-            catch let e {
-                Lprint(e)
-            }
-            
-            print("KP",generateKeyPair())
-            
-            
-        }
-        
-        
-    }
-}
