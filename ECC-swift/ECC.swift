@@ -7,6 +7,7 @@
 
 import Foundation
 import CommonCrypto
+import zlib
 
 
 private let SECP256K1_FLAGS_TYPE_CONTEXT :UInt32 =  (1 << 0);
@@ -53,16 +54,12 @@ class LTEccTool {
     }
     
     static var shared = LTEccTool();
-    var ctx:OpaquePointer ;
+//    var ctx:OpaquePointer ;
+    
+    let ec:EC;
     
     init() {
-        let  blocksize : size_t = secp256k1_context_preallocated_size(SECP256K1_CONTEXT_SIGN)
-        
-        let p = malloc(blocksize)
-        self.ctx = secp256k1_context_preallocated_create(p!,SECP256K1_CONTEXT_SIGN);
-        var buf:[UInt8] = Array<UInt8>.init(repeating: 0, count: 32);
-        randBuffer(&buf,  32);
-        _ = secp256k1_context_randomize(ctx,&buf);
+        ec = EC();
     }
     
     func randBuffer(_ s:UnsafeMutableRawPointer ,_ length:Int){
@@ -70,71 +67,33 @@ class LTEccTool {
     }
     
     func genKeyPair(_ privateKey:String?,keyPhrase:String? ,kdftype:Int = 1) throws ->  (pubKey:String,priKey:String) {
-        var dataPrivate : Data?;
-        
         var _keysNew = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
         
         if(privateKey != nil){
-            dataPrivate = try LTBase64.base64Decode(privateKey!);
-            if dataPrivate?.count != kECPrivateKeyByteCount {
-                throw LECCError.keyLengthIsNotValid
-            }
-            
-            try dataPrivate?.withUnsafeBytes(){ (bf:UnsafeRawBufferPointer) in
-                let p0 = bf.baseAddress;
-                let p2 = p0?.bindMemory(to: UInt8.self, capacity: bf.count);
-                if(secp256k1_ec_seckey_verify(self.ctx, p2!) == 0 ){
-                    throw LECCError.privateKeyIsUnvalid
-                }
-                memcpy(&_keysNew, p2, kECPrivateKeyByteCount);
-            };
+            try ec.readSecKey(privateKey!, keyOut: &_keysNew);
         }
         else if keyPhrase != nil {
             let dataKey = keyPhrase?.data(using: .utf8);
             dataKey!.withUnsafeBytes({ bfKey  in
                 KDF.generateKey(phrase: bfKey.baseAddress!, phraseSize: bfKey.count, type:kdftype == 1 ? KDFType.scrypt : KDFType.kdfv2, outKey: &_keysNew, outKeyLen: kECPrivateKeyByteCount)
             })
-            
-            
-             
+            // compatiable with lower version 
+            _keysNew.reverse();
         }
         
         else{
             genSecKey(&_keysNew);
         }
-        
-        
-        var pubkey : secp256k1_pubkey = secp256k1_pubkey();
-        let r = secp256k1_ec_pubkey_create(self.ctx, &pubkey,&_keysNew);
-        if r == 0{
-            throw LECCError.createPublicKeyFail
-        }
-        
-        var pPubOut65 = [UInt8](repeating: 0, count: 65);
-        var  pubLen = 65 as size_t;
-        
-        secp256k1_ec_pubkey_serialize(self.ctx,&pPubOut65,&pubLen, &pubkey,UInt32(SECP256K1_EC_COMPRESSED));
-        
-        
-        let strPubKey = Data(bytes: &pPubOut65, count: pubLen).base64EncodedString()
-        
-        let strPriKey = Data(bytes: &_keysNew, count:kECPrivateKeyByteCount ).base64EncodedString();
-        
+        let strPriKey = ec.serializeSecKeyBytes(&_keysNew)
+        let pubkey = try ec.createPubKey(secBytes32: &_keysNew)
+        let strPubKey = ec.serializePubKey(pubkey);
         return (pubKey:strPubKey,priKey:strPriKey)
         
     }
     
     /// 生成一个合法的私钥
     private func genSecKey(_ secKey32:UnsafeMutableRawPointer){
-        var tmp:[UInt8] = [UInt8](repeating: 0 , count: 64);
-        var tmpdata:[UInt8] = [UInt8](repeating: 0 , count: 128);
-        
-        let p = UnsafePointer<UInt8>(OpaquePointer(secKey32));
-        repeat{
-            randBuffer(&tmp,64);
-            randBuffer(&tmpdata,128);
-            CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),tmp ,64,tmpdata,128,secKey32);
-        }while (0 == secp256k1_ec_seckey_verify(self.ctx , p))
+        ec.generateSecBytes(outBf32: secKey32);
     }
     
     private func genSecKey(_ secKey32:UnsafeMutableRawPointer,phrase:String){
@@ -225,40 +184,11 @@ class LTEccTool {
         return dataOut;
         
     }
-    
-    
-    private  let my_ecdh_hash_function :  secp256k1_ecdh_hash_function =  {
-        (output: UnsafeMutablePointer<UInt8>?, x32:UnsafePointer<UInt8>?  ,y32:UnsafePointer<UInt8>? ,data:UnsafeMutableRawPointer?) -> CInt in
-        CC_SHA512(x32, 32, output);
-        return 1;
-    }
-    
-    
-    
+     
     
     func ecEncrypt(data:Data,pubKey:String ,zipfirst:Int = 1,type:CryptAlgorithm) throws ->Data{
-        var pubkey = secp256k1_pubkey();
-        var _dataPub:Data;
-        do{
-            _dataPub = try LTBase64.base64Decode(pubKey);
-        }
-        catch let e {
-            throw e;
-        }
+        var pubkey = try! ec.readPubKey(pubKey);
         
-        let dataPub = _dataPub;
-        
-        try _dataPub.withUnsafeBytes({ bf in
-            let p = bf.baseAddress?.bindMemory(to: UInt8.self, capacity: bf.count)
-            
-            let r = secp256k1_ec_pubkey_parse(self.ctx,&pubkey, p!,dataPub.count)
-            if r == 0{
-                throw LECCError.EncryptPubKeyUnvalid
-            }
-        });
-        
-        
-       
         
         var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
         genSecKey(&randKey);
@@ -266,20 +196,15 @@ class LTEccTool {
             randBuffer(&randKey, kECPrivateKeyByteCount);
         }
         
-         
-        
-        var randomPub = secp256k1_pubkey();
-        var r2 = secp256k1_ec_pubkey_create(self.ctx, &randomPub, &randKey)
-        if (r2 == 0){
-            throw LECCError.createPublicKeyFail
-        }
+        var randomPub = try! ec.createPubKey(secBytes32: &randKey)
         
         var outHash = [UInt8](repeating: 0, count: 64);
-         
-        r2 = secp256k1_ecdh(self.ctx,&outHash,&pubkey,randKey,my_ecdh_hash_function,nil)
-        if(r2 == 0){
-            throw LECCError.EncryptECDHFail
+        defer {
+            outHash.resetBytes(in: 0..<outHash.count)
         }
+         
+        ec.ecdh(secKeyA: &randKey, pubKeyB: pubkey, outBf64: &outHash);
+        
         
         var iv:[UInt8]
         if type == .aes256{
@@ -312,12 +237,10 @@ class LTEccTool {
         
         let dataEnc = Data(bytes: dataOut!, count: outSize)
         let dataIv = Data(bytes: iv, count: iv.count)
-        var outPub = [UInt8](repeating: 0, count: 65);
-        var len = 65;
+        var outPub = [UInt8](repeating: 0, count: ec.pubKeyBufferLength);
+        ec.serializePubKey(randomPub, toBytes: &outPub)
         
-        secp256k1_ec_pubkey_serialize(self.ctx, &outPub, &len,&randomPub, UInt32(SECP256K1_EC_COMPRESSED));
-        
-        let ephemPubkeyData = Data(bytes: outPub, count: len)
+        let ephemPubkeyData = Data(bytes: outPub, count: ec.pubKeyBufferLength)
         
         var dataForMac = Data(capacity: dataEnc.count + iv.count + ephemPubkeyData.count );
         dataForMac.append(dataIv);
@@ -351,37 +274,21 @@ class LTEccTool {
     func ecDecrypt(encData:Data,priKey:String) throws -> Data{
      
         let encResult = try deSearilizeToEncResult(encData);
-        let dataPrivate0 = try LTBase64.base64Decode(priKey);
-        if dataPrivate0.count != kECPrivateKeyByteCount{
-            throw LECCError.privateKeyIsUnvalid;
-        }
         
+        var dataPrivate = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
+        try! ec.readSecKey(priKey, keyOut: &dataPrivate)
         
-        var datePrivate = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
         defer {
-            memset(&datePrivate, 0, kECPrivateKeyByteCount)
-        }
-        for i in 0..<kECPrivateKeyByteCount{
-            datePrivate[i] = dataPrivate0[i];
+            memset(&dataPrivate, 0, kECPrivateKeyByteCount)
         }
         
         /// 随机私钥生成的公钥。
-        var ephemPubKey = secp256k1_pubkey();
-        try encResult.ephemPubkeyData.withUnsafeBytes { bf in
-            let p = bf.baseAddress?.bindMemory(to: UInt8.self, capacity: bf.count);
-            let r = secp256k1_ec_pubkey_parse(self.ctx, &ephemPubKey, p!, bf.count);
-            if r == 0{
-                throw LECCError.EncryptPubKeyUnvalid
-            }
+        let ephemPubKey = encResult.ephemPubkeyData.withUnsafeBytes { bf  in
+            return try! ec.readPubKey(bf.baseAddress!, count: bf.count);
         }
         
         var outHash = [UInt8](repeating: 0, count: 64);
-        
-        let r0 = secp256k1_ecdh(self.ctx, &outHash, &ephemPubKey, &datePrivate, my_ecdh_hash_function, nil);
-        if(r0 == 0){
-            throw LECCError.EncryptECDHFail;
-        }
-        
+        ec.ecdh(secKeyA: &dataPrivate, pubKeyB: ephemPubKey, outBf64: &outHash)
         
         var dataForMac = Data(capacity: encResult.ephemPubkeyData.count + encResult.iv.count + encResult.dataEnc.count);
         
@@ -396,9 +303,6 @@ class LTEccTool {
                 CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),p,32,bf.baseAddress,bf.count,&macOut);
             }
         }
-        
-        
-        
          
         if(encResult.mac != Data(macOut)){
             throw LECCError.DecryptMacNotFit
@@ -633,28 +537,17 @@ class LTEccTool {
         }
         
         var dhHash = [UInt8](repeating: 64, count: 0)
-        let dataPrikey = try LTBase64.base64Decode(prikeyString);
-        try dataPrikey.withUnsafeBytes { bf in
-            if 0 == secp256k1_ec_seckey_verify(self.ctx, bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count)){
-                throw LECCError.privateKeyIsUnvalid
-            }
-        }
-        var ephemPubKey = secp256k1_pubkey()
-        try dataEphermPubKey?.withUnsafeBytes({ bf  in
-            let r0 = secp256k1_ec_pubkey_parse(self.ctx,&ephemPubKey,(bf.baseAddress?.bindMemory(to: UInt8.self, capacity: bf.count))!,bf.count);
-            if r0 == 0 {
-                throw LECCError.EncryptPubKeyUnvalid
-            }
-        })
         
-        try dataPrikey.withUnsafeBytes { bf in
-            let r_ecdh = secp256k1_ecdh(self.ctx, &dhHash, &ephemPubKey, bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count), my_ecdh_hash_function, nil);
-            
-            if r_ecdh == 0 {
-                throw LECCError.EncryptECDHFail
-            }
+        var privateKey = [UInt8](repeating: 0, count: ec.secKeyBufferLength);
+        defer{
+            privateKey.resetBytes(in: 0..<privateKey.count)
         }
+        try ec.readSecKey(prikeyString, keyOut: &privateKey)
+        let pubKey = dataEphermPubKey?.withUnsafeBytes({ bf  in
+            return try! ec.readPubKey(bf.baseAddress!, count: bf.count);
+        });
         
+        ec.ecdh(secKeyA: &privateKey, pubKeyB: pubKey!, outBf64: &dhHash)
         
         /// check mac iv empherpubkey dataenc
         ///
@@ -846,39 +739,23 @@ class LTEccTool {
         
         /// generate
         var dhHash = [UInt8](repeating: 0, count: 64);
-        var publen = 65;
-        var outPub = [UInt8](repeating: 0, count: publen);
-        var pubkey = secp256k1_pubkey();
-        let dataPub = try! LTBase64.base64Decode(pubkeyString)
-        try dataPub.withUnsafeBytes { bf  in
-            let p = bf.baseAddress?.bindMemory(to: UInt8.self, capacity: bf.count)
-            let r = secp256k1_ec_pubkey_parse(self.ctx, &pubkey,p!,bf.count);
-            guard r != 0 else{
-                throw LECCError.createPublicKeyFail
-            }
+        defer{
+            dhHash.resetBytes(in: 0..<dhHash.count)
         }
-        
+        var publen = ec.pubKeyBufferLength;
+        var outPub = [UInt8](repeating: 0, count: publen);
+        var pubkey = try ec.readPubKey(pubkeyString)
+       
         var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
         genSecKey(&randKey);
         defer{
             randBuffer(&randKey, kECPrivateKeyByteCount);
+            genSecKey(&randKey);
         }
-        var randomPub = secp256k1_pubkey();
-        try randKey.withUnsafeBufferPointer { bf  in
-            let r = secp256k1_ec_pubkey_create(self.ctx,&randomPub,bf.baseAddress!)
-            guard r == 1 else{
-                throw LECCError.createPublicKeyFail
-            }
-        }
+        let randomPub = try! ec.createPubKey(secBytes32: &randKey);
         
-        let ecdhresul = secp256k1_ecdh(self.ctx,&dhHash,&pubkey,&randKey,my_ecdh_hash_function,nil);
-        guard ecdhresul == 1 else{
-            throw LECCError.EncryptECDHFail
-        }
-        /// no need anymore, reset the buffer
-        genSecKey(&randKey);
-        
-        secp256k1_ec_pubkey_serialize(self.ctx,&outPub,&publen,&randomPub,SECP256K1_EC_COMPRESSED)
+        ec.ecdh(secKeyA: &randKey, pubKeyB: pubkey, outBf64: &dhHash);
+        ec.serializePubKey(randomPub, toBytes: &outPub)
         
         var macPostion = 0
         var macBuffer = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
@@ -930,10 +807,6 @@ class LTEccTool {
         macPostion = 8 + Int(ivLen);
         
         var cryptor:Cryptor
-        if(alg == .salsa20){
-           
-        }
-        
         cryptor = Cryptor(type: alg, key: &dhHash, keyLen: 32, iv: &iv, ivLen: iv.count);
          
         var ctx:CCHmacContext = CCHmacContext();
@@ -1064,10 +937,7 @@ class LTEccTool {
         fflush(stdout)
     }
     
-    func test(){
-#if DEBUG
-#endif
-    }
+ 
 
 }
 
@@ -1090,5 +960,7 @@ func Lprint(_ msg:Any ... ,file:String = #file,name:String = #function, line :In
     print("",to:&stderr);
     
 }
+
+
 
 
