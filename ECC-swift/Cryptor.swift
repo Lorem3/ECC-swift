@@ -45,12 +45,8 @@ class Cryptor{
         
         var outSize1 = 0
         final(bfOut: bfOut.advanced(by: outSize0), bfOutMax: bfOutMax - outSize0, outSize: &outSize1);
-        
         outSize = outSize0 + outSize1;
-        
         clean()
-       
-        
     }
     
     

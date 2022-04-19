@@ -27,6 +27,7 @@ typealias ECKeyPair = (pubKey:String,priKey:String)
 class EC{
     let pubKeyBufferLength = 33;
     let secKeyBufferLength = 32;
+    private let XBufferLength = 32
     typealias NU512 = vU512;
     struct Point{
         var x:NU512
@@ -115,16 +116,6 @@ class EC{
         arrGy[6] = 0x26A3C465
         arrGy[7] = 0x483ADA77
         
-        
-//        let dx = Data(base64Encoded: "eb5mfvncu6xVoGKVzocLBwKb/NstzijZWfKBWxb4F5g=")!;
-//        let dy = Data(base64Encoded: "SDradyajxGVdpPv8DhEIqP0XtEimhVQZnEfQj/sQ1Lg=")!
-//        let Gx = dx.withUnsafeBytes { bf  in
-//            return NU512(bytes: bf.baseAddress!, count: 32);
-//        }
-//        let Gy = dy.withUnsafeBytes({ bf  in
-//            return NU512(bytes: bf.baseAddress!, count: 32);
-//        })
-        
         let Gx = NU512(bytes: &arrGx, count: 64);
         let Gy = NU512(bytes: &arrGy, count: 64);
         
@@ -135,10 +126,10 @@ class EC{
     }
     
     func serializeSecKeyBytes(_ bytes  :UnsafeRawPointer) -> String{
-        var data = Data(repeating: 0, count: 32);
+        var data = Data(repeating: 0, count: secKeyBufferLength);
         /// big Endian
-        for i in 0..<32{
-            let v = bytes.load(fromByteOffset: 31 - i , as: UInt8.self);
+        for i in 0..<secKeyBufferLength{
+            let v = bytes.load(fromByteOffset: secKeyBufferLength - 1 - i , as: UInt8.self);
             data[i ] = v;
         }
         let r = data.base64EncodedString();
@@ -147,12 +138,12 @@ class EC{
     }
     
     func serializeSecKey(_ sec:NU512) -> String{
-        var data = Data(repeating: 0, count: 32);
+        var data = Data(repeating: 0, count: secKeyBufferLength);
         let bytes = sec.to32Bytes();
         
         /// big Endian
         for i in 0..<bytes.count{
-            data[i ] = bytes[31 - i];
+            data[i ] = bytes[secKeyBufferLength - 1 - i];
         }
         return data.base64EncodedString();
     }
@@ -181,16 +172,16 @@ class EC{
         let data = try LTBase64.base64Decode(base64String)
         
         return  try  data.withUnsafeBytes { bf in
-            if bf.count == 32{
-                var Xbuff = [UInt8](repeating: 0, count: 32);
-                memcpy(&Xbuff,bf.baseAddress!, 32);
+            if bf.count == secKeyBufferLength{
+                var Xbuff = [UInt8](repeating: 0, count: secKeyBufferLength);
+                memcpy(&Xbuff,bf.baseAddress!, secKeyBufferLength);
                 Xbuff.reverse()
                 
                 if !isSecKeyByteValid(byte32: Xbuff) {
                     throw EC_Err.SeckeyDataError
                 }
                 
-                memcpy(keyOut, Xbuff, 32);
+                memcpy(keyOut, Xbuff, secKeyBufferLength);
                 Xbuff.resetBytes(in: 0..<Xbuff.count);
                 
             }else{
@@ -204,11 +195,11 @@ class EC{
             let bf = buffer.bindMemory(to: UInt8.self, capacity: count);
             let first = bf[0];
             if(first == 2 || first == 3){
-                var Xbuff = [UInt8](repeating: 0, count: 32);
-                memcpy(&Xbuff,bf.advanced(by: 1), 32);
+                var Xbuff = [UInt8](repeating: 0, count: secKeyBufferLength);
+                memcpy(&Xbuff,bf.advanced(by: 1), secKeyBufferLength);
                 /// pubkey is big endian
                 Xbuff.reverse();
-                let x = NU512(bytes: &Xbuff, count: 32);
+                let x = NU512(bytes: &Xbuff, count: secKeyBufferLength);
                 let P = getPoint(x: x,odd: first == 3);
                 
                 Xbuff.resetBytes(in: 0..<Xbuff.count);
@@ -222,8 +213,8 @@ class EC{
             let bf = buffer.bindMemory(to: UInt8.self, capacity: count);
             let first = bf[0];
             if(first == 4){
-                let x = NU512(bytes: bf.advanced(by: 1), count: 32);
-                let y = NU512(bytes: bf.advanced(by: 33), count: 32);
+                let x = NU512(bytes: bf.advanced(by: 1), count: XBufferLength);
+                let y = NU512(bytes: bf.advanced(by: 33), count: XBufferLength);
                 
                 let P = getPoint(x: x,odd: y.isOdd());
                 
@@ -353,15 +344,15 @@ class EC{
          
         var isSmallerThanOrder = false
         var isZero = true
-        for n in 0..<32{
-            let i = 31 - n ;
+        for n in 0..<secKeyBufferLength{
+            let i = secKeyBufferLength - 1 - n ;
             let v1 = byte32.load(fromByteOffset: i , as: UInt8.self)
             if v1 < order[i]{
                 isSmallerThanOrder = true
                 break;
             }
         }
-        for i in 0..<32{
+        for i in 0..<secKeyBufferLength{
             if byte32.load(fromByteOffset: i , as: UInt8.self) != 0{
                 isZero = false;
                 break;
@@ -373,22 +364,22 @@ class EC{
     /// sha512(DH.X)
     func ecdh(secKeyA: ECSecKey,pubKeyB:ECPubKey,outBf64:UnsafeMutableRawPointer){
         
-        var s = NU512(bytes: secKeyA, count: 32);
+        var s = NU512(bytes: secKeyA, count: secKeyBufferLength);
         let dh = pointTimes(P: pubKeyB, s: s);
         s.clear();
         
         var x32 = dh.x.to32Bytes()
         // big-endian
         x32.reverse();
-        CC_SHA512(x32, 32, outBf64.bindMemory(to: UInt8.self, capacity: 32));
+        CC_SHA512(x32, CC_LONG(XBufferLength), outBf64.bindMemory(to: UInt8.self, capacity: XBufferLength));
         x32.resetBytes(in: 0..<x32.count)
     }
     
     func generateKeyPair(_ secKey:String? = nil) -> ECKeyPair{
-        var keyBuffer = [UInt8].init(repeating: 0, count: 32);
+        var keyBuffer = [UInt8].init(repeating: 0, count: secKeyBufferLength);
         generateSecBytes(outBf32: &keyBuffer)
         
-        let secKey = NU512(bytes: &keyBuffer , count: 32);
+        let secKey = NU512(bytes: &keyBuffer , count: secKeyBufferLength);
         let pubKey = pointTimes(P: G , s: secKey);
         
         keyBuffer.reverse();
@@ -417,7 +408,7 @@ class EC{
         if !isSecKeyByteValid(byte32: secBytes32){
             throw EC_Err.SeckeyDataNotValid
         }
-        var s = NU512(bytes: secBytes32, count: 32);
+        var s = NU512(bytes: secBytes32, count: secKeyBufferLength);
         let P = pointTimes(P: G , s: s);
         s.clear()
         
@@ -766,9 +757,6 @@ extension EC.NU512{
             r0 = (m.0.value % P  + P) % P ;
             
         }
-        
-    
-        
         return r0
         
         

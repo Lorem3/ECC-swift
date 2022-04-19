@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		7A13DBA2A294CD60C0F9CDC3 /* Pods_ECC_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 783E780A82AFB247DBB67D10 /* Pods_ECC_swift.framework */; };
 		C41B6B0227E81C9D0073AD1D /* randomArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B6B0127E81C9D0073AD1D /* randomArt.swift */; };
-		C43992A727D9AF0500350C96 /* libsecp256k1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C43992A627D9AF0500350C96 /* libsecp256k1.a */; };
 		C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B427FDE1B6004E55FC /* Cryptor.swift */; };
 		C43B06B727FEA870004E55FC /* test.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B627FEA870004E55FC /* test.swift */; };
 		C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED65B27D5FBA0009C8CBC /* main.swift */; };
@@ -39,13 +38,6 @@
 		783E780A82AFB247DBB67D10 /* Pods_ECC_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ECC_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE8B5773833EC6FABB878354 /* Pods-ECC-swift.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ECC-swift.debug.xcconfig"; path = "Target Support Files/Pods-ECC-swift/Pods-ECC-swift.debug.xcconfig"; sourceTree = "<group>"; };
 		C41B6B0127E81C9D0073AD1D /* randomArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = randomArt.swift; sourceTree = "<group>"; };
-		C43992A627D9AF0500350C96 /* libsecp256k1.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecp256k1.a; path = Secp256k1Lib/libsecp256k1.a; sourceTree = "<group>"; };
-		C43992A827D9AF1A00350C96 /* secp256k1_preallocated.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1_preallocated.h; path = Secp256k1Lib/include/secp256k1_preallocated.h; sourceTree = "<group>"; };
-		C43992A927D9AF1A00350C96 /* secp256k1_schnorrsig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1_schnorrsig.h; path = Secp256k1Lib/include/secp256k1_schnorrsig.h; sourceTree = "<group>"; };
-		C43992AA27D9AF1A00350C96 /* secp256k1_extrakeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1_extrakeys.h; path = Secp256k1Lib/include/secp256k1_extrakeys.h; sourceTree = "<group>"; };
-		C43992AB27D9AF1A00350C96 /* secp256k1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1.h; path = Secp256k1Lib/include/secp256k1.h; sourceTree = "<group>"; };
-		C43992AC27D9AF1A00350C96 /* secp256k1_ecdh.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1_ecdh.h; path = Secp256k1Lib/include/secp256k1_ecdh.h; sourceTree = "<group>"; };
-		C43992AD27D9AF1B00350C96 /* secp256k1_recovery.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = secp256k1_recovery.h; path = Secp256k1Lib/include/secp256k1_recovery.h; sourceTree = "<group>"; };
 		C43B06B427FDE1B6004E55FC /* Cryptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cryptor.swift; sourceTree = "<group>"; };
 		C43B06B627FEA870004E55FC /* test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test.swift; sourceTree = "<group>"; };
 		C49ED65827D5FBA0009C8CBC /* ECC */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ECC; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -69,7 +61,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C4E38A052806BA9B0001ABE0 /* Accelerate.framework in Frameworks */,
-				C43992A727D9AF0500350C96 /* libsecp256k1.a in Frameworks */,
 				7A13DBA2A294CD60C0F9CDC3 /* Pods_ECC_swift.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -89,12 +80,6 @@
 		C49ED64F27D5FBA0009C8CBC = {
 			isa = PBXGroup;
 			children = (
-				C43992AC27D9AF1A00350C96 /* secp256k1_ecdh.h */,
-				C43992AA27D9AF1A00350C96 /* secp256k1_extrakeys.h */,
-				C43992A827D9AF1A00350C96 /* secp256k1_preallocated.h */,
-				C43992AD27D9AF1B00350C96 /* secp256k1_recovery.h */,
-				C43992A927D9AF1A00350C96 /* secp256k1_schnorrsig.h */,
-				C43992AB27D9AF1A00350C96 /* secp256k1.h */,
 				C49ED68327D74935009C8CBC /* ECC-swift.h */,
 				C49ED65A27D5FBA0009C8CBC /* ECC-swift */,
 				C4E9FE09280300B00006B723 /* test */,
@@ -133,7 +118,6 @@
 			isa = PBXGroup;
 			children = (
 				C4E38A042806BA9B0001ABE0 /* Accelerate.framework */,
-				C43992A627D9AF0500350C96 /* libsecp256k1.a */,
 				783E780A82AFB247DBB67D10 /* Pods_ECC_swift.framework */,
 			);
 			name = Frameworks;

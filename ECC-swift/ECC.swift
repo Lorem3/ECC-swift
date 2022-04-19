@@ -77,6 +77,8 @@ class LTEccTool {
             dataKey!.withUnsafeBytes({ bfKey  in
                 KDF.generateKey(phrase: bfKey.baseAddress!, phraseSize: bfKey.count, type:kdftype == 1 ? KDFType.scrypt : KDFType.kdfv2, outKey: &_keysNew, outKeyLen: kECPrivateKeyByteCount)
             })
+            // compatiable with lower version 
+            _keysNew.reverse();
         }
         
         else{

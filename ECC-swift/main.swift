@@ -69,9 +69,10 @@ func printKey(key:Data){
 }
 
 
+let Version = "1.0.0"
 
 let helpMsg = """
-ecc 0.2.0
+ecc \(Version)
 g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count pbkdf2] [-kt 1: scrypt default 2:pbkdf] [-S] saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] [-o outpath]
    -a a:aes256 s:salsa20 default
@@ -127,9 +128,6 @@ repeat{
         }
     }
     
-    
-    
-    
     let cmd = CommandLine.arguments[1];
     var strSecKey = dicArg["s"] as! String?
     if strPreKey == nil{
@@ -148,12 +146,13 @@ repeat{
             print("seckey [s] is specified,the key phrass [k] will be ignored");
         }
         else if(keyphrase != nil){
-            let dataKeyPhrase =  keyphrase!.data(using: .utf8);
+            var dataKeyPhrase =  keyphrase!.data(using: .utf8);
             
             // if length of keyphrase is less than 4 ,treat it as word count
             if dataKeyPhrase!.count < 4 {
                 let c =  Int(keyphrase!);
                 keyphrase =  WordList.genKeyPhrase(c!);
+                dataKeyPhrase =  keyphrase!.data(using: .utf8);
             }
             if dataKeyPhrase!.count < 10{
                 print("key phrase is too short < 10")
@@ -398,5 +397,5 @@ catch let e {
     redPrint(e)
 }
 
-let t = Test();
-t.test();
+//let t = Test();
+//t.test();
