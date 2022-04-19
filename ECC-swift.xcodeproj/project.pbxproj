@@ -40,7 +40,7 @@
 		C41B6B0127E81C9D0073AD1D /* randomArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = randomArt.swift; sourceTree = "<group>"; };
 		C43B06B427FDE1B6004E55FC /* Cryptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cryptor.swift; sourceTree = "<group>"; };
 		C43B06B627FEA870004E55FC /* test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test.swift; sourceTree = "<group>"; };
-		C49ED65827D5FBA0009C8CBC /* ECC */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ECC; sourceTree = BUILT_PRODUCTS_DIR; };
+		C49ED65827D5FBA0009C8CBC /* ECC2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ECC2; sourceTree = BUILT_PRODUCTS_DIR; };
 		C49ED65B27D5FBA0009C8CBC /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		C49ED66227D5FBEC009C8CBC /* ECC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ECC.swift; sourceTree = "<group>"; };
 		C49ED66427D5FE23009C8CBC /* Base64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Base64.swift; sourceTree = "<group>"; };
@@ -92,7 +92,7 @@
 		C49ED65927D5FBA0009C8CBC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C49ED65827D5FBA0009C8CBC /* ECC */,
+				C49ED65827D5FBA0009C8CBC /* ECC2 */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -160,7 +160,7 @@
 			);
 			name = "ECC-swift";
 			productName = "ECC-swift";
-			productReference = C49ED65827D5FBA0009C8CBC /* ECC */;
+			productReference = C49ED65827D5FBA0009C8CBC /* ECC2 */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -252,7 +252,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\n#cp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/ECC\n#mkdir -p \"${SRCROOT}/release\"\n#cp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" \"${SRCROOT}/release/ecc\"\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/${EXECUTABLE_NAME}\nmkdir -p \"${SRCROOT}/release\"\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" \"${SRCROOT}/release/${EXECUTABLE_NAME}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -409,7 +409,7 @@
 					"$(PROJECT_DIR)/Secp256k1Lib",
 				);
 				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = ECC;
+				PRODUCT_NAME = ECC2;
 				SWIFT_INCLUDE_PATHS = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/ECC-swift.h";
 				SWIFT_PRECOMPILE_BRIDGING_HEADER = YES;
@@ -432,9 +432,9 @@
 					"$(PROJECT_DIR)",
 					"$(PROJECT_DIR)/Secp256k1Lib",
 				);
-				ONLY_ACTIVE_ARCH = YES;
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = ECC;
+				PRODUCT_NAME = ECC2;
 				SWIFT_INCLUDE_PATHS = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/ECC-swift.h";
 				SWIFT_PRECOMPILE_BRIDGING_HEADER = YES;

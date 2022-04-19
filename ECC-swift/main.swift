@@ -68,10 +68,10 @@ func printKey(key:Data){
     
 }
 
-
+let Version = "1.0.0"
 
 let helpMsg = """
-ecc 0.2.0
+ecc \(Version)
 g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count pbkdf2] [-kt 1: scrypt default 2:pbkdf] [-S] saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] [-o outpath]
    -a a:aes256 s:salsa20 default

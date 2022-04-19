@@ -6,7 +6,7 @@
 //
 
 import Foundation
-
+import zlib
 enum GzErrorCode :Int {
     case decompressFail = 0
     case compressFail = 1

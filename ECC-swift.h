@@ -9,8 +9,8 @@
 #define _BridgeHead_
 
 #import <CommonCrypto/CommonHMAC.h>
-#import "secp256k1.h"
-#import <zlib.h>
+//#import "secp256k1.h"
+//#import <zlib.h>
 
 //#import "secp256k1_preallocated.h"
 //#import "secp256k1_extrakeys.h"
