@@ -213,9 +213,14 @@ class EC{
             let bf = buffer.bindMemory(to: UInt8.self, capacity: count);
             let first = bf[0];
             if(first == 4){
-                let x = NU512(bytes: bf.advanced(by: 1), count: XBufferLength);
-                let y = NU512(bytes: bf.advanced(by: 33), count: XBufferLength);
+                var numberBuffer = [UInt8](repeating: 0, count: XBufferLength);
+                memcpy(&numberBuffer, bf.advanced(by: 1), XBufferLength);
+                numberBuffer.reverse();
                 
+                let x = NU512(bytes: &numberBuffer, count: XBufferLength);
+                memcpy(&numberBuffer, bf.advanced(by: 33), XBufferLength);
+                numberBuffer.reverse();
+                let y = NU512(bytes: &numberBuffer, count: XBufferLength);
                 let P = getPoint(x: x,odd: y.isOdd());
                 
                 if(P.y == y){
