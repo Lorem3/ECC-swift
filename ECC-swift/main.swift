@@ -265,7 +265,13 @@ export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
             
             if files is Array<Any>{
                 for file in files as! [String] {
-                    try LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz, alg:t);
+                    do {
+                        try LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz, alg:t);
+                    }
+                    catch let e {
+                        redPrint(e)
+                    }
+                    
                 }
                 
             }else if files is String{

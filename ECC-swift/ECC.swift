@@ -694,7 +694,18 @@ class LTEccTool {
         var isDir = false as ObjCBool;
         if(FileManager.default.fileExists(atPath: inFilePath, isDirectory: &isDir)){
             if isDir.boolValue == true {
-                throw LECCError.inputIsDirectory;
+                
+                let arr = try! FileManager.default.contentsOfDirectory(atPath: inFilePath)
+                for path  in arr  {
+                    do {
+                        let sPath = inFilePath + "/\(path)";
+                        try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , gzip:gzip,alg:alg);
+                    }
+                    catch let e {
+                        redPrint(e);
+                    }
+                }
+                return;
             }
         }
         
