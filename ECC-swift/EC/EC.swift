@@ -20,6 +20,7 @@ enum EC_Err :Error{
 }
 
 typealias ECPubKey = EC.Point;
+/// little-endian Interger
 typealias ECSecKey = UnsafeMutableRawPointer
 typealias ECKeyPair = (pubKey:String,priKey:String)
 
@@ -364,6 +365,97 @@ class EC{
             }
         }
         return !isZero && isSmallerThanOrder;
+    }
+    
+    func signData(seckey:ECSecKey,data32:UnsafeRawPointer,out64:UnsafeMutableRawPointer){
+        /// big-endian
+        var bfHash = [UInt8](repeating: 0, count: 32);
+        var bfTmpR = [UInt8](repeating: 0, count: 32);
+        var bfTmp = [UInt8](repeating: 0, count: 32);
+        defer{
+            bfTmpR.resetBytes(in: 0..<bfTmpR.count);
+            bfHash.resetBytes(in: 0..<bfTmpR.count);
+            bfTmp.resetBytes(in: 0..<bfTmpR.count);
+            
+        }
+        
+        memcpy(&bfHash, data32, 32);
+        bfHash.reverse();
+        let h = NU512(bytes: &bfHash, count: 32);
+        
+        var Rx :NU512 = NU512.zeroN() ;
+        var retry = false;
+        repeat{
+            retry = false;
+            arc4random_buf(&bfTmp , 32);
+            CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),&bfTmp ,32,data32,32,&bfTmpR);
+            if !isSecKeyByteValid(byte32: bfTmpR){
+                retry = true
+                continue;
+            }
+            
+            let  tmpPubKey = try! createPubKey(secBytes32: &bfTmpR);
+            Rx = tmpPubKey.x
+            
+            if Rx == 0 {
+                retry = true;
+                continue;
+            }
+            retry = !isSecKeyByteValid(byte32: bfTmpR)
+            
+            let k = NU512(bytes: bfTmpR, count: secKeyBufferLength)
+            let k1 = k.exGCD(Order);
+            
+            var privateKey = NU512(bytes: seckey, count: secKeyBufferLength);
+            defer{
+                privateKey.clear()
+            }
+            let sign = (k1 * ( (h + privateKey * Rx ) % Order)) % Order;
+            var rxArr =  Rx.to32Bytes()
+            rxArr.reverse()
+            var signArr =  sign.to32Bytes()
+            signArr.reverse()
+             
+            let pOut = out64.bindMemory(to: UInt8.self, capacity: 64);
+            for i in 0..<32{
+                pOut[i] = rxArr[i];
+                pOut[i + 32] = signArr[i];
+            }
+            
+             
+        }while retry
+        /// S =  k  (h + dA • Rx)
+    }
+    
+    func verifySignature(pubKey:ECPubKey,hash:UnsafeRawPointer, signData64:UnsafeMutableRawPointer) -> Bool{
+        var SignData = [UInt8](repeating: 0, count: 64);
+        var Hash = [UInt8](repeating: 0, count: 32);
+        defer{
+            SignData.resetBytes(in: 0..<SignData.count)
+        }
+        memcpy(&SignData, signData64, 64);
+        SignData.reverse()
+        
+        memcpy(&Hash, hash, 32);
+        Hash.reverse();
+        
+        let h = NU512(bytes: &Hash, count: 32);
+     
+        var  S :NU512 = NU512.zeroN();
+        var  Rx:NU512 = NU512.zeroN();
+        SignData.withUnsafeBytes { bf  in
+            S = NU512(bytes: bf.baseAddress!, count: 32)
+            Rx = NU512(bytes: bf.baseAddress!.advanced(by: 32), count: 32)
+        }
+        //  R =  s1 (h G  + P • Rx)
+        let s1 = S.exGCD(Order)
+        let P2 = pointTimes(P: G , s: h)
+        let P3 = pointTimes(P: pubKey , s: Rx)
+        
+        var R = ZeroPoint;
+        pointAdd(P: P2 , Q: P3 , R: &R)
+        R = pointTimes(P: R , s: s1);
+        return R.x == Rx
     }
     
     /// sha512(DH.X)

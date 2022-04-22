@@ -193,3 +193,24 @@ extension Data {
 func redPrint(_ msg:Any,line:Int = #line,funcname:String = #function){
     print("\u{001B}[31;49m\(msg) \(funcname) \(line) \u{001B}[0;0m")
 }
+
+
+extension Array where Element == UInt8{
+    func toHexString() -> String {
+        let hexAlphabet : [String] = ["0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"];
+    
+        var arr = [String]();
+        var c = 0;
+        for e in self {
+            if(c % 32 == 0 && c != 0){
+                arr.append("\n");
+            }
+            arr.append(hexAlphabet[Int(e / 0x10)]);
+            arr.append(hexAlphabet[Int(e % 0x10)]);
+            
+            
+            c += 1
+        }
+        return arr.joined(separator: "");
+    }
+}
