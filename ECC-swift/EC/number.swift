@@ -7,120 +7,167 @@
 
 import Foundation
 import Accelerate
+import libtommath
+@inline(__always)func mp_iseven(_ a:UnsafePointer<mp_int>)->Bool{
+    let mp = a.pointee
+    return ((mp.used == 0) || ((mp.dp[0] & 1) == 0))
+}
+@inline(__always)func mp_isodd(_ a:UnsafePointer<mp_int>)->Bool{
+    return !mp_iseven(a);
+}
 
-extension EC.NU512{
-    var intValue :UInt32  {get {return v.0[0]}}
+
+struct NU512{
+    var value:mp_int
+    init(){
+        value = mp_int()
+        _ = mp_init(&value)
+    }
+}
+
+infix operator ===
+extension NU512{
+    var intValue :UInt32  {get {
+        if value.used == 0 {
+            return 0
+        }
+        return UInt32(value.dp[0] & 0xffffffff)
+    }}
     
     func isNegtive() -> Bool{
-        return (self.v.3[3] & 0x08000000) > 0
+        return (self.value.sign == MP_NEG)
+    }
+    mutating func setNeg(){
+        withUnsafePointer(to: value) { a  in
+            mp_neg(a , &value)
+            
+        }
     }
     
-    static func - (_ a:  NU512,_ b: NU512) -> NU512{
-        return withUnsafePointer(to: a) { A in
-            return withUnsafePointer(to: b) { B in
-                var z = zeroN();
-                vU512Sub(A , B , &z);
-                return z;
+    static func  === (_ a:inout  NU512,_ b: NU512){
+        _ = withUnsafePointer(to: b.value) { pb in
+            mp_copy(pb , &a.value )
+        }
+    }
+    
+    static func += (_ a:inout  NU512,_ b: NU512){
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_add(pa,pb, &a.value);
             }
         }
+        
+    }
+    
+    static func -= (_ a:inout  NU512,_ b: NU512){
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_sub(pa,pb, &a.value);
+            }
+        }
+    }
+    
+    static func *= (_ a:inout  NU512,_ b: NU512){
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_mul(pa,pb, &a.value);
+            }
+        }
+    }
+    
+    static func %= (_ a:inout  NU512,_ b: NU512) {
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_mod(pa,pb, &a.value);
+            }
+        }
+    }
+    
+    
+    
+    static func - (_ a:  NU512,_ b: NU512) -> NU512{
+        var z = NU512()
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_sub(pa,pb, &z.value);
+            }
+        }
+        
+        return z;
+    }
+    
+    static prefix func - (_ a:  NU512) -> NU512{
+        var z = NU512()
+        _ = withUnsafePointer(to: a.value) { pa  in
+            mp_neg(pa , &z.value)
+        }
+        return z;
     }
     
     static func + (_ a:  NU512,_ b:  NU512) -> NU512{
-        return withUnsafePointer(to: a) { A in
-            return withUnsafePointer(to: b) { B in
-                var z = NU512();
-                vU512Add(A , B , &z)
-                return z;
+        var z = NU512()
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_add(pa,pb, &z.value);
             }
         }
+        return z;
     }
-    static func += (_ a: inout NU512,_ b:  NU512) {
-        withUnsafeMutablePointer(to: &a) { A in
-            withUnsafePointer(to: b) { B in
-                vU512Add(A , B , A)
-            }
-        }
-    }
+    
     
     
     
     
     static func * (_ a:  NU512,_ b:  UInt32) -> NU512{
-        let b512 = NU512(u32: b)
-        return withUnsafePointer(to: a) { A in
-            return withUnsafePointer(to: b512) { B in
-                var z = NU512();
-                vU512HalfMultiply(A , B , &z)
-                return z;
-            }
+        var z = NU512()
+       
+        _ = withUnsafePointer(to: a.value) { pa  in
+            mp_mul_d(pa , UInt64(b) , &z.value);
         }
+        return z;
     }
     
     static func * (_ a:  NU512,_ b:  NU512) -> NU512{
-        let b512 = b
-        return withUnsafePointer(to: a) { A in
-            return withUnsafePointer(to: b512) { B in
-                var z = NU512();
-                vU512HalfMultiply(A , B , &z)
-                
-                
-                return z;
+        var z = NU512()
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_mul(pa , pb , &z.value)
             }
         }
+        return z;
     }
     
     
     
     
-    static func % (_ a:  NU512,_ b:  UInt32) -> NU512{
-        
-        let b2 = NU512(u32: b);
-        
-        return withUnsafePointer(to: a) { A in
-            return withUnsafePointer(to: b2) { B in
-                var z = zeroN();
-                vU512Mod(A , B, &z);
-                return z;
-            }
-        }
-        
-    }
+//    static func % (_ a:  NU512,_ b:  UInt32) -> NU512{
+//        var z = NU512()
+//        _ = withUnsafePointer(to: a.value) { pa  in
+//            mp_div_d(pa , UInt64(b), nil  , &z.value)
+//        }
+//        return z;
+//
+//    }
     
     static func % (_ a:  NU512,_ b:  NU512) -> NU512{
-        return withUnsafePointer(to: a) { A in
-            return withUnsafePointer(to: b) { B in
-                var z = zeroN();
-                vU512Mod(A , B, &z);
-                return z;
+        var z = NU512()
+        _ = withUnsafePointer(to: a.value) { pa  in
+            withUnsafePointer(to: b.value) { pb in
+                mp_div(pa , pb , nil , &z.value)
             }
         }
+        return z;
         
     }
     
-    
-    
-    
-    
-    static prefix func - (_ a:NU512) -> NU512{
-        return withUnsafePointer(to: a) { A in
-            var z = zeroN();
-            vU512Neg(A , &z)
-            return z;
-        }
-    }
-    
+     
     
     static  func / (_ a:NU512,_ b:UInt32) -> NU512{
-        let b512 = NU512(u32: b);
-        return withUnsafePointer(to: a) { A in
-           return  withUnsafePointer(to: b512) { B  in
-               var z = zeroN();
-               var zz = zeroN();
-               vU512Divide(A , B , &z, &zz);
-               return z;
-            }
-            
+        var z = NU512()
+        _ = withUnsafePointer(to: a.value) { pa  in
+            mp_div_d(pa , UInt64(b) , &z.value , nil)
         }
+        return z;
     }
     
     
@@ -142,81 +189,11 @@ extension EC.NU512{
    
     
     func  removeAllRightZero(result:inout NU512, zeroBitCount:inout Int){
-        var tmp = [UInt32](repeating: 0, count: 16);
-        for i in 0..<16{
-            let m = i / 4;
-            let n = i % 4;
-            switch m  {
-            case 0:
-                tmp[i] = self.v.0[n];
-            case 1:
-                tmp[i] = self.v.1[n];
-            case 2:
-                tmp[i] = self.v.2[n];
-            case 3:
-                tmp[i] = self.v.3[n];
-                
-            default:
-                break
-            }
-            
+        let c = withUnsafePointer(to: self.value) { a -> Int32 in
+            mp_copy(a , &result.value);
+            return mp_cnt_lsb(a)
         }
-        defer {
-            memset(&tmp, 0, 64);
-        }
-        
-        var bitcount = 0;
-        var bytecount = 0;
-        
-        var i = 0;
-        while i < 16 && tmp[i] == 0{
-            i += 1;
-            bitcount +=  32;
-            bytecount += 4;
-        }
-        
-        let bitShift = countRightZero(u32: tmp[i]);
-        zeroBitCount = bitcount + bitShift
-        
-        if(bytecount > 0){
-            for i in bytecount..<16{
-                tmp[i - bytecount] = tmp[i];
-            }
-        }
-        
-        if bitShift > 0{
-            
-            let LeftBits = 32 - bitShift
-            let maskR = UInt32.max >> (LeftBits) ;
-            
-            for i in 0..<16{
-                let V = tmp[i];
-                let VNxt = i < 16 ? tmp[i] : 0;
-                tmp[i] = (V >> bitShift) | (VNxt & maskR) << LeftBits
-            }
-        }
-        
-        
-        
-        
-        for i in 0..<16{
-            let m = i / 4;
-            let n = i % 4;
-            switch m  {
-            case 0:
-                result.v.0[n] = tmp[i]
-            case 1:
-                result.v.1[n] = tmp[i]
-            case 2:
-                result.v.2[n] = tmp[i]
-            case 3:
-                result.v.3[n] = tmp[i]
-                
-            default:
-                break
-            }
-            
-        }
+        mp_rshd(&result.value,c);
          
     }
      
@@ -225,86 +202,100 @@ extension EC.NU512{
     
     
     func divide(_ b:NU512,result:inout NU512,remain:inout NU512){
-        let a = self;
-        withUnsafePointer(to: a) { A in
-            withUnsafePointer(to: b) { B in
-                vU512Divide(A, B, &result, &remain);
+        _ = withUnsafePointer(to: self.value) { pa  in
+            withUnsafePointer(to: b.value) { pb  in
+                mp_div(pa,pb,&result.value,&remain.value)
             }
         }
     }
     
+    mutating func set(u32:UInt32){
+        mp_set_u32(&value, u32)
+    }
     init(u32:UInt32){
         self.init();
-        self.v.0[0] = u32;
+        _ = mp_init_u32(&value, u32)
     }
     
     func isOdd() -> Bool{
-        return (self.intValue & 1) == 1;
+        return withUnsafePointer(to:self.value) { a  in
+            return mp_isodd(a)
+        }
     }
     func printHex(_ msg:String = "", ln:Int = #line){
         print("line:\(ln) \(msg)",hexString())
     }
     
     
-    func highHexString() -> String{
-        let n = self;
-        var s = String(format: "%08x", n.v.2[0]);
-        s = String(format: "%08x", n.v.2[1]) + s
-        s = String(format: "%08x", n.v.2[2]) + s
-        s = String(format: "%08x", n.v.2[3]) + s
-        s = String(format: "%08x", n.v.3[0]) + s
-        s = String(format: "%08x", n.v.3[1]) + s
-        s = String(format: "%08x", n.v.3[2]) + s
-        s = String(format: "%08x", n.v.3[3]) + s
-         
-         return s;
-    }
+    
     
     func hexString() -> String{
-        let n = self;
-        var s = String(format: "%08x", n.v.0[0]);
-        s = String(format: "%08x", n.v.0[1]) + s
-        s = String(format: "%08x", n.v.0[2]) + s
-        s = String(format: "%08x", n.v.0[3]) + s
-        s = String(format: "%08x", n.v.1[0]) + s
-        s = String(format: "%08x", n.v.1[1]) + s
-        s = String(format: "%08x", n.v.1[2]) + s
-        s = String(format: "%08x", n.v.1[3]) + s
-
+        return withUnsafePointer(to:self.value) { a in
+            var bf = [Int8](repeating: 0, count: 100);
+            var w = 0
+            _ = mp_to_radix(a , &bf , bf.count , &w , 0x10);
+            
+            return String(cString: bf)
+        }
          
-         return s;
     }
     
     func to32Bytes() -> [UInt8]{
         var r = [UInt8](repeating: 0, count: 32);
-        let n = self;
-        var iStart =  0;
-        
-        for j in 0...3{
-            withUnsafeBytes(of: n.v.0[j]) { bf  in
-                for i in 0..<bf.count{
-                    r[iStart + i ] = bf[i]
+        withUnsafePointer(to: value) { a  in
+//            mp_clamp(a)
+            var w = 0
+            _  = mp_to_ubin(a , &r, 32, &w);
+            
+            if w > 1 {
+                // to little endian
+                var left = 0, right = w - 1;
+                while left < right{
+                    let tmp = r[left];
+                    r[left] = r[right];
+                    r[right] = tmp;
+                    left += 1
+                    right -= 1
                 }
-                iStart += bf.count
             }
+            
+            
         }
-        for j in 0...3{
-            withUnsafeBytes(of: n.v.1[j]) { bf  in
-                for i in 0..<bf.count{
-                    r[iStart + i ] = bf[i]
-                }
-                iStart += bf.count
-            }
-        }
+         
         return r;
     }
     
+    @inline(__always)static func == (_ x:NU512,_ y:NU512) -> Bool{
+        return withUnsafePointer(to: x.value) { a  in
+            withUnsafePointer(to: y.value) { b in
+            return mp_cmp(a,b) == MP_EQ
+        }
+    }
+    }
+    
+    @inline(__always) static  func == (_ x:NU512,_ y:UInt32) -> Bool{
+        return  withUnsafePointer(to: x.value) { a in
+            return mp_cmp_d(a , UInt64(y)) == MP_EQ
+        }
+    }
+    
+    
+    @inline(__always) static func zeroN() -> NU512{
+        var a = NU512.init()
+        mp_zero(&a.value)
+        return a
+    }
+    
+    @inline(__always) static func oneN() -> NU512{
+        
+        var a = NU512();
+        mp_set_u32(&a.value, 1);
+        return a;
+    }
+    
+    
     mutating func clear(){
-        let msk = SIMDMask<vUInt32.MaskStorage>.init(repeating: true);
-        self.v.0.replace(with: 0, where: msk);
-        self.v.1.replace(with: 0, where: msk);
-        self.v.2.replace(with: 0, where: msk);
-        self.v.3.replace(with: 0, where: msk);
+        mp_clear(&self.value)
     }
     
     

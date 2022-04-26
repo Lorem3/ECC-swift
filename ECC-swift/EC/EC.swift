@@ -8,6 +8,7 @@
 import Foundation
 import Accelerate
 import CommonCrypto
+import libtommath
 
 
 enum EC_Err :Error{
@@ -29,7 +30,7 @@ class EC{
     let pubKeyBufferLength = 33;
     let secKeyBufferLength = 32;
     private let XBufferLength = 32
-    typealias NU512 = vU512;
+    
     struct Point{
         var x:NU512
         var y:NU512
@@ -58,8 +59,7 @@ class EC{
     internal let NZero:NU512;
     
     init(){
-        let zero = vUInt32.zero;
-        let zero256 =  NU512(v: (zero, zero,zero,zero))
+        let zero256 =  NU512.zeroN()
         NZero = zero256;
         /*
         Prime = NU512(u32: 6741313)
@@ -71,54 +71,61 @@ class EC{
 //      P   FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE FFFFFC2F
 //   ORDER   FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141
         
-        var arr = [UInt32](repeating: 0, count: 16);
-        arr[0] = 0xFFFFFC2F;
-        arr[1] = 0xFFFFFFFE;
-        arr[2] = 0xFFFFFFFF;
-        arr[3] = 0xFFFFFFFF;
-        arr[4] = 0xFFFFFFFF;
-        arr[5] = 0xFFFFFFFF;
-        arr[6] = 0xFFFFFFFF;
-        arr[7] = 0xFFFFFFFF;
-        Prime =  NU512(bytes: &arr, count: 64);
+//        var arr = [UInt32](repeating: 0, count: 16);
+//        arr[0] = 0xFFFFFC2F;
+//        arr[1] = 0xFFFFFFFE;
+//        arr[2] = 0xFFFFFFFF;
+//        arr[3] = 0xFFFFFFFF;
+//        arr[4] = 0xFFFFFFFF;
+//        arr[5] = 0xFFFFFFFF;
+//        arr[6] = 0xFFFFFFFF;
+//        arr[7] = 0xFFFFFFFF;
+//        NU512(bytes: &arr, count: 64);
+        Prime = NU512(hex: "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F")
         
-        arr[0] = 0xD0364141;
-        arr[1] = 0xBFD25E8C;
-        arr[2] = 0xAF48A03B;
-        arr[3] = 0xBAAEDCE6;
-        arr[4] = 0xFFFFFFFE;
-        arr[5] = 0xFFFFFFFF;
-        arr[6] = 0xFFFFFFFF;
-        arr[7] = 0xFFFFFFFF;
         
-        Order =  NU512(bytes: &arr, count: 64);
+//        arr[0] = 0xD0364141;
+//        arr[1] = 0xBFD25E8C;
+//        arr[2] = 0xAF48A03B;
+//        arr[3] = 0xBAAEDCE6;
+//        arr[4] = 0xFFFFFFFE;
+//        arr[5] = 0xFFFFFFFF;
+//        arr[6] = 0xFFFFFFFF;
+//        arr[7] = 0xFFFFFFFF;
+        
+//        Order =  NU512(bytes: &arr, count: 64);
+        Order = NU512(hex: "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
         
         
         
         // 79BE667E F9DCBBAC 55A06295 CE870B07 029BFCDB 2DCE28D9 59F2815B 16F81798
         // 483ADA77 26A3C465 5DA4FBFC 0E1108A8 FD17B448 A6855419 9C47D08F FB10D4B8
-        var arrGx = [UInt32](repeating: 0, count: 64);
-        arrGx[0] = 0x16F81798
-        arrGx[1] = 0x59F2815B
-        arrGx[2] = 0x2DCE28D9
-        arrGx[3] = 0x029BFCDB
-        arrGx[4] = 0xCE870B07
-        arrGx[5] = 0x55A06295
-        arrGx[6] = 0xF9DCBBAC
-        arrGx[7] = 0x79BE667E
+//        var arrGx = [UInt32](repeating: 0, count: 64);
+//        arrGx[0] = 0x16F81798
+//        arrGx[1] = 0x59F2815B
+//        arrGx[2] = 0x2DCE28D9
+//        arrGx[3] = 0x029BFCDB
+//        arrGx[4] = 0xCE870B07
+//        arrGx[5] = 0x55A06295
+//        arrGx[6] = 0xF9DCBBAC
+//        arrGx[7] = 0x79BE667E
+//
+//        var arrGy = [UInt32](repeating: 0, count: 64);
+//        arrGy[0] = 0xFB10D4B8
+//        arrGy[1] = 0x9C47D08F
+//        arrGy[2] = 0xA6855419
+//        arrGy[3] = 0xFD17B448
+//        arrGy[4] = 0x0E1108A8
+//        arrGy[5] = 0x5DA4FBFC
+//        arrGy[6] = 0x26A3C465
+//        arrGy[7] = 0x483ADA77
+//
+//        let Gx = NU512(bytes: &arrGx, count: 64);
+//        let Gy = NU512(bytes: &arrGy, count: 64);
         
-        var arrGy = [UInt32](repeating: 0, count: 64);
-        arrGy[0] = 0xFB10D4B8
-        arrGy[1] = 0x9C47D08F
-        arrGy[2] = 0xA6855419
-        arrGy[3] = 0xFD17B448
-        arrGy[4] = 0x0E1108A8
-        arrGy[5] = 0x5DA4FBFC
-        arrGy[6] = 0x26A3C465
-        arrGy[7] = 0x483ADA77
+        let Gx = NU512(hex: "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798")
         
-        let Gx = NU512(bytes: &arrGx, count: 64);
-        let Gy = NU512(bytes: &arrGy, count: 64);
+        let Gy = NU512(hex: "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8")
         
         G = Point(Gx,Gy)
         ZeroPoint = Point(zero256,zero256);
@@ -249,7 +256,7 @@ class EC{
         let y = k.cipolla_sqrt(P: Prime);
         
         
-        if odd != (y.intValue & 1 == 1){
+        if odd != (y.isOdd()){
             return Point(x,Prime - y)
         }
         return Point(x,y)
@@ -291,10 +298,7 @@ class EC{
             k = (tmpDy * tmp) % Prime
              
         }
-        var x = ((k  * k)  - P.x - Q.x) % Prime
-        if x .isNegtive() {
-            x = -x;
-        }
+        let x = ((k  * k)  - P.x - Q.x) % Prime
         
         let y = ((k * ((P.x + Prime - x ) % Prime)) % Prime + Prime - P.y) % Prime;
  
@@ -526,12 +530,7 @@ extension EC {
     @inline(__always)func isZeroPoint(_ P:Point) -> Bool{
         return ZeroPoint == P;
     }
-     
-    
-    func clearNU512(_ a:inout NU512){
-        a.v.0 = SIMD4<UInt32>.zero;
-        a.v.1 = SIMD4<UInt32>.zero;
-    }
+      
     
 }
 
@@ -546,107 +545,25 @@ extension EC.Point{
 
 
 
-extension EC.NU512{
-    typealias NU512 = EC.NU512
+extension NU512{
     
-    typealias NS512 = vS512
     
     /// little endian
-    init(  bytes:UnsafeRawPointer,count:Int){
+    init( bytes:UnsafeRawPointer,count:Int){
         self.init();
-        self.fill(bytes:bytes, count: count);
+        _ = mp_unpack(&value, count, MP_LSB_FIRST, 1, MP_LITTLE_ENDIAN, 0, bytes)
     }
-    /// max count = 32;
-    mutating func  fill(bytes:UnsafeRawPointer,count:Int){
-        for i in 0..<count{
-            let sIndx = i / 16;
-            let byteIdx = i % 4;
-            
-            let itemIdx = (i % 16) / 4
-            switch sIndx {
-            case 0:
-                var simd = self.v.0;
-                
-                var v = simd[itemIdx];
-                let i8 = bytes.load(fromByteOffset: i , as: UInt8.self);
-                let i32 = UInt32(i8) << (byteIdx * 8)
-                v |= i32;
-                simd[itemIdx] = v;
-                self.v.0 = simd;
-                
-                
-                break
-            case 1:
-                var simd = self.v.1;
-                var v = simd[itemIdx];
-                let i8 = bytes.load(fromByteOffset: i , as: UInt8.self);
-                let i32 = UInt32(i8) << (byteIdx * 8)
-                v |= i32;
-                simd[itemIdx] = v;
-                self.v.1 = simd;
-                
-                break
-            case 2:
-                var simd = self.v.2;
-                var v = simd[itemIdx];
-                let i8 = bytes.load(fromByteOffset: i , as: UInt8.self);
-                let i32 = UInt32(i8) << (byteIdx * 8)
-                v |= i32;
-                simd[itemIdx] = v;
-                self.v.2 = simd;
-                break
-            case 3:
-                var simd = self.v.3;
-                var v = simd[itemIdx];
-                let i8 = bytes.load(fromByteOffset: i , as: UInt8.self);
-                let i32 = UInt32(i8) << (byteIdx * 8)
-                v |= i32;
-                simd[itemIdx] = v;
-                self.v.3 = simd;
-                break
-            default:
-                
-                Lprint("Error Max Lenght 32")
-                break
-            }
-             
+    
+    // big endian hex
+    init(hex:String){
+        self.init();
+        hex.withCString { cs  in
+            mp_read_radix(&value, cs , 0x10);
         }
     }
+   
+   
     
-    @inline(__always)static func == (_ x:NU512,_ y:NU512) -> Bool{
-        return x.v.0 == y.v.0 && x.v.1 == y.v.1 && x.v.2 == y.v.2 && x.v.3 == y.v.3
-    }
-    
-    @inline(__always)static func == (_ x:NU512,_ y:UInt32) -> Bool{
-        return x.v.0[0] == y
-        && x.v.0[1] == 0
-        && x.v.0[2] == 0
-        && x.v.0[3] == 0
-        && x.v.1 == vUInt32.zero
-        && x.v.2 == vUInt32.zero
-        && x.v.3 == vUInt32.zero
-    }
-    
-    
-    @inline(__always) static func zeroN() -> NU512{
-        let zero = vUInt32.zero;
-        let zero256 =  NU512(v: (zero, zero,zero,zero))
-        return zero256;
-    }
-    
-    @inline(__always) static func oneN() -> NU512{
-        let zero = vUInt32.zero;
-        var one = vUInt32.zero;
-        one[0] = 1;
-        let z =  NU512(v: (one, zero,zero,zero))
-        return z;
-    }
-    
-    
-    
-    @inline(__always) func isSameNumber(_ y:NU512) -> Bool{
-        return self.v.0 == y.v.0 && self.v.1 == y.v.1 && self.v.2 == y.v.2 && self.v.3 == y.v.3
-    }
 
       
     
@@ -722,7 +639,7 @@ extension EC.NU512{
         }
         
         let x_2 = x / 2;
-        let s_a = x.intValue & 1;
+        let s_a = x.isOdd() ? 1 : 0 ;
         
         _pow(a: a, x: x_2, p: p, R: &R);
         
@@ -738,10 +655,9 @@ extension EC.NU512{
     
     func multiply(_ a:NU512,_ b:NU512,_ p:NU512) -> NU512{
         let a_2 = a / 2;
-        let s = a.intValue & 1;
         
         var r = ((a_2 * b ) % p * 2) % p
-        if s == 1{
+        if a.isOdd() {
             r = (r + b) % p
         }
         return r;
@@ -759,16 +675,20 @@ extension EC.NU512{
         }
         
         if !eulerJudge(a:n,p:P){
-            
             return NU512.zeroN()
         }
-        
         var a = NU512.zeroN()
         var A2_N = NU512.zeroN()
         
         repeat{
-            a = NU512(u32: arc4random_uniform(10000) + 1) ;//
-            A2_N = (a * a + P - n + P) % P
+            a.set(u32: arc4random_uniform(100000) + 1)
+            A2_N.set(u32: a.intValue);
+            A2_N *= A2_N;
+            A2_N += P
+            A2_N -= n
+            A2_N += P
+            A2_N %= P;
+//            A2_N = (a * a + P - n + P) % P
         }while eulerJudge(a: A2_N, p: P)
         
         let n1 = NU512(u32: 1);
@@ -793,7 +713,8 @@ extension EC.NU512{
             return;
         }
         
-        let left = k.v.0[0] & 1;
+        let left = k.isOdd() ? 1 : 0;
+         
         let k_2 = k / 2;
         _pow2(xy, A2_N, k_2, p , &Result);
 
@@ -823,12 +744,23 @@ extension EC.NU512{
     
     
     
+    func exGCD2(_ P: NU512) -> NU512{
+        var z = NU512();
+        _ = withUnsafePointer(to: value) { pa  in
+            _ = withUnsafePointer(to: P.value) { pp in
+                mp_invmod(pa , pp , &z.value)
+            }
+
+        }
+        return z;
+    }
+    
      
     
     /// find x than  self * x = 1 mod P;
     func exGCD(_ P: NU512) -> NU512{
-        let a = self;
         
+        let a = self;
         if a == 1{
             return NU512.oneN()
         }
@@ -837,115 +769,151 @@ extension EC.NU512{
         }
         
         var aa = a;
-        
         aa = aa % P;
-        
-
-        
         var P2 = P;
-        let m = _exGCD(a: &aa , b: &P2);
+        let R = _exGCD(a: &aa , b: &P2);
         let r0:NU512
-        
-        
-        
-        if m.0.isNegtive == 1{
-            r0 =  (-m.0.value  + P) % P
+         
+        if R.0.isNegtive() {
+            r0 =  (R.0  + P) % P
         }else{
-            r0 = (m.0.value % P  + P) % P ;
-            
+            r0 = R.0 % P
         }
         return r0
-        
-        
-        
-        
-        
-        
     }
     
    
     
-    typealias NSign512 = (isNegtive:Int,value:NU512)
+    typealias NSign512 =  NU512 //(isNegtive:Int,value:NU512)
     typealias Matrix4 = (NSign512,NSign512,NSign512,NSign512)
-    ///
-    func _exGCD(a:inout NU512,b:inout NU512) -> Matrix4 {
+    
+    
+    func _exGCD(a:inout NU512,b:inout NU512 ) -> Matrix4{
+        
          
         
          // a * x = b mod 1;
         /**
          *    | xn  1 |  ... | x1  1|    |a |  = |1|
-         *    | 1   0 |      | 1   0|    | b|    |k|
+         *    | 1   0 |      | 1   0|    |b |    |k|
          */
         
-        var s = b % a;
-
+        
+        var s = NU512();
+ 
         var q = NU512.zeroN();
-        b.divide(a, result: &q , remain: &s);
-
-        if s == 1{
-            
-            return (
-                (1,q),
-                (0,NU512.oneN()),
-                (0,NU512.oneN()),
-                (0,NU512.zeroN()))
-            
-            
-//            return ((-q),NU512.oneN(),NU512.oneN(),NU512.zeroN())
-        }
-
-        else if s == 0 {
-            
-            return (
-                (0,NU512.zeroN()),
-                (0,NU512.zeroN()),
-                (0,NU512.zeroN()),
-                (0,NU512.zeroN())
-            )
-            
-//            return (NU512.zeroN(),NU512.zeroN(),NU512.zeroN(),NU512.zeroN())
-        }
-
+        var A = NU512()
+        var B = NU512()
+        A === a
+        B === b
         
-        let m0 = (
-            (1,q),
-            (0,NU512.oneN()),
-            (0,NU512.oneN()),
-            (0,NU512.zeroN())
-        )
         
-//        let m0 = (( -q),NU512.oneN(),NU512.oneN(),NU512.zeroN());
-        let m1 = _exGCD(a: &s , b: &a );
+        var R = (NU512.oneN(),NU512.zeroN(),NU512.zeroN(),NU512.oneN())
+        var tmp =  (NU512.oneN(),NU512.zeroN(),NU512.zeroN(),NU512.oneN())
+        var preR =  (NU512.oneN(),NU512.zeroN(),NU512.zeroN(),NU512.oneN())
         
-        return MtrixMultiply(m0,m1)
+        var tmpN0 = NU512.zeroN();
+        var tmpN1 = NU512.zeroN();
+        var tmpN2 = NU512.zeroN();
+        var tmpN3 = NU512.zeroN();
+        var stop = false;
+        
+        let zero = NU512.zeroN()
+        let one = NU512.oneN()
+        var c = 0
+        repeat {
+            c += 1
+            B.divide(A, result: &q , remain: &s);
+            
+            B === A
+            A === s
+
+            if s == 1{
+                tmp.0 === q
+                tmp.0.setNeg();
+                tmp.1 === one
+                tmp.2 === one
+                tmp.3 === zero
+                
+//                tmp = ((-q),NU512.oneN(),NU512.oneN(),NU512.zeroN())
+                stop = true
+            }else if s == 0 {
+                
+                R.0 === zero;
+                R.1 === zero;
+                R.2 === zero;
+                R.3 === zero;
+                
+//                R = (NU512.zeroN(),NU512.zeroN(),NU512.zeroN(),NU512.zeroN())
+                break;
+            }
+            else {
+                tmp.0 === q
+                tmp.0.setNeg();
+                tmp.1 === one
+                tmp.2 === one
+                tmp.3 === zero
+                
+//                tmp = ((-q),NU512.oneN(),NU512.oneN(),NU512.zeroN())
+            }
+            
+            /// matrx  R = R • tmp
+            /*
+             ns_add(ns_multiply(a: a.0, b: b.0), ns_multiply(a: a.1, b: b.2)),
+             ns_add(ns_multiply(a: a.0, b: b.1), ns_multiply(a: a.1, b: b.3)),
+             ns_add(ns_multiply(a: a.2, b: b.0), ns_multiply(a: a.3, b: b.2)),
+             ns_add(ns_multiply(a: a.2, b: b.1), ns_multiply(a: a.3, b: b.3)))
+         
+            */
+            
+            
+            
+            preR.0 === R.0
+            preR.1 === R.1
+            preR.2 === R.2
+            preR.3 === R.3
+  
+            /// 0
+            R.0 *= tmp.0
+            tmpN0 === preR.1
+            tmpN0 *= tmp.2
+            R.0 += tmpN0
+            
+            R.1 === preR.0
+            R.1 *= tmp.1
+            tmpN1 === preR.1
+            tmpN1 *= tmp.3
+            R.1 += tmpN1
+            
+            R.2 *= tmp.0
+            tmpN2 === preR.3
+            tmpN2 *= tmp.2
+            R.2 += tmpN2
+            
+            R.3 === preR.2
+            R.3 *= tmp.1
+            tmpN3 === preR.3
+            tmpN3 *= tmp.3
+            R.3 += tmpN3
+            
+            
+
+            
+        }while !stop
+        
+        return R
     }
     
     func ns_multiply( a:NSign512, b:NSign512) -> NSign512{
-        return (isNegtive:a.isNegtive == b.isNegtive ? 0:1,value:a.value * b.value)
+        return a * b ;
     }
     
     func ns_add(_ a:NSign512,_ b:NSign512) -> NSign512{
-        if a.isNegtive == b.isNegtive{
-           return  (isNegtive:a.isNegtive ,value:a.value + b.value)
-        }else{
-            let r = a.value - b.value;
-            if r.isNegtive(){
-                return (isNegtive:b.isNegtive ,-r)
-            }else{
-                return (isNegtive:a.isNegtive ,r)
-            }
-            
-        }
+        return a + b;
     }
     
     func MtrixMultiply(_ a:Matrix4,_ b:Matrix4) -> Matrix4{
-        /*
-          a0 a1           b0 b1
-          a2 a3     *     b2 b3
-         */
-        
-        
-        
+       
         return (
             ns_add(ns_multiply(a: a.0, b: b.0), ns_multiply(a: a.1, b: b.2)),
             ns_add(ns_multiply(a: a.0, b: b.1), ns_multiply(a: a.1, b: b.3)),

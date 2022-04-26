@@ -68,7 +68,7 @@ func printKey(key:Data){
     
 }
 
-let Version = "1.0.0"
+let Version = "1.1.0"
 
 let helpMsg = """
 ecc \(Version)
@@ -405,5 +405,5 @@ catch let e {
     redPrint(e)
 }
 
-//let t = Test();
-//t.test();
+let t = Test();
+t.test();
