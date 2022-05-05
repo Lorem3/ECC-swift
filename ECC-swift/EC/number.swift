@@ -50,6 +50,26 @@ extension NU512{
         }
     }
     
+    static func  >>= (_  a:inout  NU512, _ rightShiftBits: Int32){
+        _ = withUnsafePointer(to: a.value) { pa in
+            mp_div_2d(pa, rightShiftBits , &a.value, nil)
+        }
+    }
+    static func  <<= (_  a:inout  NU512, _ shift: Int32){
+        _ = withUnsafePointer(to: a.value) { pa in
+            mp_mul_2d(pa , shift, &a.value)
+        }
+    }
+    
+    static func  > (_  a:  NU512, _ b:  NU512) -> Bool{
+        return withUnsafePointer(to: a.value) { pa  in
+            return withUnsafePointer(to: b.value) { pb  in
+                return mp_cmp(pa, pb) == MP_GT;
+            }
+        }
+        
+    }
+    
     static func += (_ a:inout  NU512,_ b: NU512){
         _ = withUnsafePointer(to: a.value) { pa  in
             withUnsafePointer(to: b.value) { pb in
@@ -72,6 +92,11 @@ extension NU512{
             withUnsafePointer(to: b.value) { pb in
                 mp_mul(pa,pb, &a.value);
             }
+        }
+    }
+    static func *= (_ a:inout  NU512,_ b: UInt64){
+        _ = withUnsafePointer(to: a.value) { pa  in
+            mp_mul_d(pa,b,&a.value)
         }
     }
     
@@ -222,6 +247,11 @@ extension NU512{
             return mp_isodd(a)
         }
     }
+    
+    func isZero() -> Bool{
+        return self.value.used == 0
+    }
+    
     func printHex(_ msg:String = "", ln:Int = #line){
         print("line:\(ln) \(msg)",hexString())
     }
@@ -235,7 +265,7 @@ extension NU512{
             var w = 0
             _ = mp_to_radix(a , &bf , bf.count , &w , 0x10);
             
-            return String(cString: bf)
+            return String(cString: bf).lowercased()
         }
          
     }
@@ -295,7 +325,15 @@ extension NU512{
     
     
     mutating func clear(){
-        mp_clear(&self.value)
+        if(value.dp == nil){
+            print("22")
+            return;
+        }
+        mp_zero(&value)
+        mp_clear(&value)
+        value.dp = nil
+        
+        
     }
     
     

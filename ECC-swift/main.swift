@@ -405,5 +405,5 @@ catch let e {
     redPrint(e)
 }
 
-let t = Test();
-t.test();
+//let t = Test();
+//t.test();

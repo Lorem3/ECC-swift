@@ -38,6 +38,10 @@ class EC{
             self.x = x ;
             self.y = y
         }
+        mutating func clear(){
+            x.clear()
+            y.clear()
+        }
     }
     
 //    typealias Point = (x:NU512,y:NU512)
@@ -272,37 +276,111 @@ class EC{
             R = P;
         }
         
+        var tmp = NU512()
+        var tmpAdd = NU512()
+        var tmpX = NU512()
+        defer{
+            tmp.clear()
+            tmpAdd.clear()
+            tmpX.clear()
+        }
         
-        var k:NU512
+        
+        var k:NU512 = NU512()
         /// 求切线
         if P == Q{
             if isZeroPoint(P){
+                R.clear()
                 R = ZeroPoint;
                 return;
             }
             
-            let tmp = (P.y * 2).exGCD(Prime);
-            k = ((((P.x * P.x % Prime) * 3 + a) % Prime) * tmp) % Prime
+            tmpAdd === P.y;
+            tmpAdd <<= 1;
+            tmpAdd.exGCD(Prime, Result: &tmp);
+            
+            tmpX === P.x;
+            tmpX *= tmpX
+            tmpX %= Prime
+            tmpX *= 3
+            tmpX += a
+            tmpX %= Prime
+            tmpX *= tmp
+            tmpX %= Prime
+            
+            k === tmpX
+            
+             
+//            let tmp = (P.y * 2).exGCD(Prime,Result: &tmp);
+//            k = ((((P.x * P.x % Prime) * 3 + a) % Prime) * tmp) % Prime
             
       
         }else{
             if P.x == Q.x{
+                R.clear()
                 R = ZeroPoint;
                 return;
             }
             
-            let tmpz = (P.x + Prime - Q.x) % Prime
-            let tmp = tmpz.exGCD(Prime);
-            let tmpDy = (P.y + Prime - Q.y) % Prime
+            tmpAdd === P.x
+            tmpAdd += Prime
+            tmpAdd -= Q.x
+            tmpAdd %= Prime
+            
+            tmpAdd.exGCD(Prime, Result: &tmp)
+            
+            tmpX === P.y
+            tmpX -= Q.y
+            tmpX += Prime
+            tmpX %= Prime
+            
+            tmpX *= tmp
+            tmpX %= Prime
+            k === tmpX
+            
 
-            k = (tmpDy * tmp) % Prime
+            
+//            let tmpz = (P.x + Prime - Q.x) % Prime
+//            let tmp = tmpz.exGCD(Prime);
+//            let tmpDy = (P.y + Prime - Q.y) % Prime
+//
+//            k = (tmpDy * tmp) % Prime
              
         }
-        let x = ((k  * k)  - P.x - Q.x) % Prime
         
-        let y = ((k * ((P.x + Prime - x ) % Prime)) % Prime + Prime - P.y) % Prime;
+
+        tmp === k
+        tmp *= k
+        tmp -= P.x
+        tmp -= Q.x
+        tmp %= Prime
+        if(tmp.isNegtive()){
+            tmp += Prime
+        }
+        
+        let x = tmp;
+        
+        tmpX === P.x
+        tmpX += Prime
+        tmpX -= tmp
+        tmpX %= Prime
+        tmpX *= k
+        
+        tmpX += Prime
+        tmpX -= P.y
+        tmpX %= Prime
+        
+        if(tmpX.isNegtive()){
+            tmpX += Prime
+        }
+        let y = tmpX
+        
+//        let x = ((k  * k)  - P.x - Q.x) % Prime
+//        let y = ((k * ((P.x + Prime - x ) % Prime)) % Prime + Prime - P.y) % Prime;
  
-        R = Point(x,y)
+        
+        R.x === x
+        R.y === y
         
     }
     
@@ -372,6 +450,10 @@ class EC{
     }
     
     func signData(seckey:ECSecKey,data32:UnsafeRawPointer,out64:UnsafeMutableRawPointer){
+        
+        
+        var tmpN = NU512()
+        
         /// big-endian
         var bfHash = [UInt8](repeating: 0, count: 32);
         var bfTmpR = [UInt8](repeating: 0, count: 32);
@@ -380,6 +462,7 @@ class EC{
             bfTmpR.resetBytes(in: 0..<bfTmpR.count);
             bfHash.resetBytes(in: 0..<bfTmpR.count);
             bfTmp.resetBytes(in: 0..<bfTmpR.count);
+            tmpN.clear()
             
         }
         
@@ -407,8 +490,14 @@ class EC{
             }
             retry = !isSecKeyByteValid(byte32: bfTmpR)
             
-            let k = NU512(bytes: bfTmpR, count: secKeyBufferLength)
-            let k1 = k.exGCD(Order);
+            var k = NU512(bytes: bfTmpR, count: secKeyBufferLength)
+            var k1 = NU512()
+            defer{
+                k.clear()
+                k1.clear()
+            }
+            
+            k.exGCD(Order,Result: &k1);
             
             var privateKey = NU512(bytes: seckey, count: secKeyBufferLength);
             defer{
@@ -452,22 +541,36 @@ class EC{
             Rx = NU512(bytes: bf.baseAddress!.advanced(by: 32), count: 32)
         }
         //  R =  s1 (h G  + P • Rx)
-        let s1 = S.exGCD(Order)
-        let P2 = pointTimes(P: G , s: h)
-        let P3 = pointTimes(P: pubKey , s: Rx)
+        var s1 = NU512()
+        
+
+        
+        S.exGCD(Order,Result: &s1)
+        var P2 = pointTimes(P: G , s: h)
+        var P3 = pointTimes(P: pubKey , s: Rx)
         
         var R = ZeroPoint;
         pointAdd(P: P2 , Q: P3 , R: &R)
         R = pointTimes(P: R , s: s1);
-        return R.x == Rx
+        let r = R.x == Rx
+        defer{
+            s1.clear()
+            P2.clear()
+            P3.clear()
+        }
+        
+        return r
     }
     
     /// sha512(DH.X)
     func ecdh(secKeyA: ECSecKey,pubKeyB:ECPubKey,outBf64:UnsafeMutableRawPointer){
         
         var s = NU512(bytes: secKeyA, count: secKeyBufferLength);
-        let dh = pointTimes(P: pubKeyB, s: s);
+        var dh = pointTimes(P: pubKeyB, s: s);
         s.clear();
+        defer{
+            dh.clear()
+        }
         
         var x32 = dh.x.to32Bytes()
         // big-endian
@@ -740,46 +843,160 @@ extension NU512{
        
         Result = (x,y);
     }
+     
     
-    
-    
-    
-    func exGCD2(_ P: NU512) -> NU512{
-        var z = NU512();
-        _ = withUnsafePointer(to: value) { pa  in
-            _ = withUnsafePointer(to: P.value) { pp in
-                mp_invmod(pa , pp , &z.value)
-            }
-
-        }
-        return z;
+    func exGCD(_ P: NU512,Result:inout NU512) {
+        binaryExGcd(P , result: &Result)
+        
+//        var z = NU512();
+//        _ = withUnsafePointer(to: value) { pa  in
+//            _ = withUnsafePointer(to: P.value) { pp in
+//                mp_invmod(pa , pp , &z.value)
+//            }
+//
+//        }
+//        return z;
     }
     
      
     
     /// find x than  self * x = 1 mod P;
-    func exGCD(_ P: NU512) -> NU512{
+    func binaryExGcd(_ P: NU512 ,result:inout NU512) {
+        
+        var zero = NU512.zeroN();
+        var one = NU512.oneN();
+        defer{
+            zero.clear()
+            one.clear()
+        }
+        if !P.isOdd(){
+            result === zero;
+            return ;
+        }
         
         let a = self;
         if a == 1{
-            return NU512.oneN()
+            result === one
+            return;
         }
         if a == 0{
-            return NU512.zeroN();
+            result === zero
+            return
         }
+        
         
         var aa = a;
         aa = aa % P;
-        var P2 = P;
-        let R = _exGCD(a: &aa , b: &P2);
-        let r0:NU512
-         
-        if R.0.isNegtive() {
-            r0 =  (R.0  + P) % P
-        }else{
-            r0 = R.0 % P
+        var u = NU512.oneN()
+        var v = NU512.zeroN()
+        
+        var A = NU512()
+        var B = NU512()
+        A === aa
+        B === P
+        
+        var inverse2 = P + one
+        inverse2 >>= 1
+        
+        defer{
+            
+            A.clear()
+            B.clear()
+            aa.clear()
+            u.clear()
+            v.clear()
+            inverse2.clear()
         }
-        return r0
+        
+  
+        while true{
+            if A == 1{
+                break
+            }
+            
+            if(B.isZero()){
+                // gcd *= A;
+                break
+            }
+            
+            if A > B {
+                mp_exch(&A.value, &B.value)
+                mp_exch(&u.value, &v.value)
+            }
+            
+            let isAOdd = A.isOdd();
+            let isBOdd = B.isOdd();
+            
+//            if !isAOdd && !isBOdd{
+//                gcd *= 2
+//            }
+            
+            if isAOdd && isBOdd{
+                /**
+                  B = (B-A)/2
+                  v = (v-u)/2
+                 */
+                B -= A;
+                B >>= 1
+                
+                v -= u
+                if(v.isNegtive()){
+                    v += P
+                }
+//                v *= inverse2
+                if(v.isOdd()){
+                    v >>= 1;
+                    v += inverse2
+                }else{
+                    v >>= 1
+                }
+            }
+            else if(!isAOdd){
+                A >>= 1
+                if (u.isOdd()){
+                    /**
+                     *    u = (2n + 1)
+                     *    u * invers2 = 2 * i * n + i =   n + i mod p
+                     */
+                    u >>= 1;
+                    u += inverse2
+                    
+                }else{
+                    u >>= 1
+                }
+                
+                u %= P
+                
+                
+            }else if(!isBOdd){
+                B >>= 1
+//                v *= inverse2
+                 
+                if(v.isOdd()){
+                    /**
+                     *    v = (2n + 1)
+                     *    v * i = 2 * i * n + i =   n + i mod p
+                     */
+                    
+                    v >>= 1;
+                    v += inverse2;
+                    
+                }else{
+                    v >>= 1;
+                }
+                
+                v %= P
+                
+            }
+        }
+        
+        u %= P
+        if(u.isNegtive()){
+            u += P
+        }
+        
+        result === u;
+        
     }
     
    
@@ -787,8 +1004,8 @@ extension NU512{
     typealias NSign512 =  NU512 //(isNegtive:Int,value:NU512)
     typealias Matrix4 = (NSign512,NSign512,NSign512,NSign512)
     
-    
-    func _exGCD(a:inout NU512,b:inout NU512 ) -> Matrix4{
+    /*
+    func _exGCD(a:  NU512,b: NU512 ,gcd:inout NU512) -> Matrix4{
         
          
         
@@ -816,11 +1033,13 @@ extension NU512{
         var tmpN1 = NU512.zeroN();
         var tmpN2 = NU512.zeroN();
         var tmpN3 = NU512.zeroN();
-        var stop = false;
         
         let zero = NU512.zeroN()
         let one = NU512.oneN()
         var c = 0
+        
+//        var end = NU512.oneN();
+  
         repeat {
             c += 1
             B.divide(A, result: &q , remain: &s);
@@ -828,21 +1047,20 @@ extension NU512{
             B === A
             A === s
 
-            if s == 1{
-                tmp.0 === q
-                tmp.0.setNeg();
-                tmp.1 === one
-                tmp.2 === one
-                tmp.3 === zero
+            
+//            if s == 1{
+//                tmp.0 === q
+//                tmp.0.setNeg();
+//                tmp.1 === one
+//                tmp.2 === one
+//                tmp.3 === zero
+//
+////                tmp = ((-q),NU512.oneN(),NU512.oneN(),NU512.zeroN())
+//
+//            }else
+            if s == 0 {
                 
-//                tmp = ((-q),NU512.oneN(),NU512.oneN(),NU512.zeroN())
-                stop = true
-            }else if s == 0 {
-                
-                R.0 === zero;
-                R.1 === zero;
-                R.2 === zero;
-                R.3 === zero;
+                gcd === B
                 
 //                R = (NU512.zeroN(),NU512.zeroN(),NU512.zeroN(),NU512.zeroN())
                 break;
@@ -866,6 +1084,8 @@ extension NU512{
          
             */
             
+            print("R",R.0.intValue,R.1.intValue,R.2.intValue,R.3.intValue)
+            print("tmp",tmp.0.intValue,tmp.1.intValue,tmp.2.intValue,tmp.3.intValue)
             
             
             preR.0 === R.0
@@ -899,10 +1119,13 @@ extension NU512{
             
 
             
-        }while !stop
+        }while true
+        
+        print("count",c,R.0.intValue);
         
         return R
     }
+     */
     
     func ns_multiply( a:NSign512, b:NSign512) -> NSign512{
         return a * b ;
