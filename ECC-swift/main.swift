@@ -68,7 +68,7 @@ func printKey(key:Data){
     
 }
 
-let Version = "1.1.0"
+let Version = "1.2.1"
 
 let helpMsg = """
 ecc \(Version)
@@ -142,6 +142,8 @@ repeat{
     
     switch cmd {
     case "g":
+        let quiet = CommandLine.arguments.contains("-q")
+        
         var keyphrase = dicArg["k"] as! String?
         
         if keyphrase != nil && strSecKey != nil {
@@ -170,7 +172,7 @@ repeat{
             
             let kp = try LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase,kdftype: kdfType)
             
-            if(kdfType == 1){
+            if(kdfType == 1 && !quiet){
                 let msg = """
             scrypt N = 16384 r = 8 p = 1
             salt [length \(KDF.scryptSalt.count)]:
@@ -188,15 +190,19 @@ repeat{
             
             let keyData = try  LTBase64.base64Decode(kp.priKey);
             printKey(key: keyData)
-            
-            let resultStr = """
-prikey:\(kp.priKey)
-pubKey:\(kp.pubKey)
+            if(!quiet){
+                let resultStr = """
+    prikey:\(kp.priKey)
+    pubKey:\(kp.pubKey)
 
-unset EC_PUBKEY EC_SECKEY
-export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
-"""
-            print(resultStr);
+    unset EC_PUBKEY EC_SECKEY
+    export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
+    """
+                print(resultStr);
+            }
+            else{
+                print("\(kp.priKey) \(kp.pubKey)")
+            }
             
             
             if kp != nil && CommandLine.arguments.contains("-S"){
@@ -214,16 +220,22 @@ export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
             let kp = try LTEccTool.shared.genKeyPair(strSecKey, keyPhrase:nil )
             
             let keyData = try  LTBase64.base64Decode(kp.priKey);
-            printKey(key: keyData)
+            if(!quiet){
+                printKey(key: keyData)
+                let resultStr = """
+    prikey:\(kp.priKey)
+    pubKey:\(kp.pubKey)
+    unset EC_PUBKEY EC_SECKEY
+    export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
+    """
+                print(resultStr)
+            }
+            else{
+                print("\(kp.priKey) \(kp.pubKey)")
+            }
             
-            let resultStr = """
-prikey:\(kp.priKey)
-pubKey:\(kp.pubKey)
+            
 
-unset EC_PUBKEY EC_SECKEY
-export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
-"""
-            print(resultStr)
             
             if kp != nil && CommandLine.arguments.contains("-S"){
                 
@@ -403,6 +415,7 @@ unset EC_PUBKEY EC_SECKEY
 catch let e {
 //    print(e)
     redPrint(e)
+    exit(1)
 }
 
 //let t = Test();

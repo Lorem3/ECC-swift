@@ -270,10 +270,10 @@ class EC{
     
     func pointAdd(P:Point,Q:Point,R:inout Point){
         if(isZeroPoint(P)){
-            R = Q;
+            R === Q;
         }
         if(isZeroPoint(Q)){
-            R = P;
+            R === P;
         }
         
         var tmp = NU512()
@@ -290,8 +290,7 @@ class EC{
         /// 求切线
         if P == Q{
             if isZeroPoint(P){
-                R.clear()
-                R = ZeroPoint;
+                R === ZeroPoint;
                 return;
             }
             
@@ -317,8 +316,7 @@ class EC{
       
         }else{
             if P.x == Q.x{
-                R.clear()
-                R = ZeroPoint;
+                R === ZeroPoint;
                 return;
             }
             
@@ -398,7 +396,7 @@ class EC{
             return;
         }
         if s == 1{
-            R = P
+            R === P
             return;
         }
         
@@ -407,8 +405,14 @@ class EC{
             return;
         }
         
+        var  s_2 =  NU512();
+        s_2 === s;
+        s_2 >>= 1
         
-        let  s_2 = s / 2;
+     
+        defer{
+            s_2.clear()
+        }
  
         _pointTimes(P: P , s: s_2, R: &R);
         pointAdd(P: R , Q: R , R: &R)
@@ -579,12 +583,20 @@ class EC{
         x32.resetBytes(in: 0..<x32.count)
     }
     
-    func generateKeyPair(_ secKey:String? = nil) -> ECKeyPair{
+    func generateKeyPair() -> ECKeyPair{
         var keyBuffer = [UInt8].init(repeating: 0, count: secKeyBufferLength);
+        
         generateSecBytes(outBf32: &keyBuffer)
         
-        let secKey = NU512(bytes: &keyBuffer , count: secKeyBufferLength);
-        let pubKey = pointTimes(P: G , s: secKey);
+        
+        var secKey = NU512(bytes: &keyBuffer , count: secKeyBufferLength);
+        var pubKey = pointTimes(P: G , s: secKey);
+        
+        defer{
+            keyBuffer.resetBytes(in: 0..<keyBuffer.count)
+            secKey.clear()
+            pubKey.clear()
+        }
         
         keyBuffer.reverse();
         let data = Data(bytesNoCopy: &keyBuffer, count: keyBuffer.count, deallocator: Data.Deallocator.none)
@@ -623,6 +635,16 @@ class EC{
 }
 
 
+infix operator ===
+extension EC.Point{
+    typealias Point = EC.Point
+    
+    static func  === (_ a:inout  Point,_ b: Point){
+        a.x === b.x
+        a.y === b.y
+    }
+    
+}
 
 
 /// mark do the mac
