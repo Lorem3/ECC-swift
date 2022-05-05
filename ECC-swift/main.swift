@@ -81,7 +81,7 @@ s  show saved key in keychain
 
 -z 0 ,if don't want gzip File(-f) before encrypt, sepecify this
 
-if you dont want specify -s -p everytime ,
+if you dont want to specify -s -p everytime ,
 set EC_SECKEY or EC_PUBKEY on current ENV
 export set EC_SECKEY=...
 export set EC_PUBKEY=...
