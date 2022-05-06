@@ -279,14 +279,14 @@ class EC{
         var tmp = NU512()
         var tmpAdd = NU512()
         var tmpX = NU512()
+        var k:NU512 = NU512()
         defer{
             tmp.clear()
             tmpAdd.clear()
             tmpX.clear()
+            k.clear()
         }
         
-        
-        var k:NU512 = NU512()
         /// 求切线
         if P == Q{
             if isZeroPoint(P){
@@ -384,7 +384,10 @@ class EC{
     
     
     func pointTimes(P:Point, s:NU512)-> Point{
-        let s1 = s % Order
+        var s1 = s % Order
+        defer{
+            s1.clear()
+        }
         var R = Point(NU512.zeroN(),NU512.zeroN());
          _pointTimes(P: P, s: s1,R:&R);
         return R;
@@ -392,7 +395,7 @@ class EC{
     
     internal func _pointTimes(P:Point, s:NU512,R: inout Point){
         if s == 0{
-            R = ZeroPoint
+            R === ZeroPoint
             return;
         }
         if s == 1{
