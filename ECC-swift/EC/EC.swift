@@ -156,7 +156,7 @@ class EC{
         let Gy = NU512(hex: "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8")
         
         G = Point(Gx,Gy)
-        ZeroPoint = Point(zero256,zero256);
+        ZeroPoint = Point(NU512.zeroN(),NU512.zeroN());
         a = NU512(u32: 0);
         b = NU512(u32: 7);
     }
