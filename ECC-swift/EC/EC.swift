@@ -34,6 +34,10 @@ class EC{
     struct Point{
         var x:NU512
         var y:NU512
+        init(){
+            self.x = NU512()
+            self.y = NU512()
+        }
         init(_ x:NU512,_ y:NU512){
             self.x = x ;
             self.y = y
@@ -61,6 +65,26 @@ class EC{
     
     ///
     internal let NZero:NU512;
+    
+    deinit{
+        var G2 = G
+        var a2 = a
+        var b2 = b
+        var order2 = Order
+        var P = Prime
+        var NZero2 = NZero
+        var ZeroPoint2 = ZeroPoint
+        
+        G2.clear()
+        a2.clear()
+        b2.clear()
+        order2.clear()
+        P.clear()
+        NZero2.clear()
+        ZeroPoint2.clear()
+        
+        
+    }
     
     init(){
         let zero256 =  NU512.zeroN()
@@ -383,14 +407,15 @@ class EC{
     }
     
     
-    func pointTimes(P:Point, s:NU512)-> Point{
+    func pointTimes(P:Point, s:NU512,R:inout Point){
         var s1 = s % Order
         defer{
             s1.clear()
         }
-        var R = Point(NU512.zeroN(),NU512.zeroN());
-         _pointTimes(P: P, s: s1,R:&R);
-        return R;
+        var tmpR = Point()
+         _pointTimes(P: P, s: s1,R:&tmpR);
+        R === tmpR
+        tmpR.clear()
     }
     
     internal func _pointTimes(P:Point, s:NU512,R: inout Point){
@@ -456,28 +481,38 @@ class EC{
         return !isZero && isSmallerThanOrder;
     }
     
-    func signData(seckey:ECSecKey,data32:UnsafeRawPointer,out64:UnsafeMutableRawPointer){
-        
-        
+    func signData(seckey:ECSecKey,data32:UnsafeRawPointer,out64:UnsafeMutableRawPointer){        
         var tmpN = NU512()
-        
         /// big-endian
         var bfHash = [UInt8](repeating: 0, count: 32);
         var bfTmpR = [UInt8](repeating: 0, count: 32);
         var bfTmp = [UInt8](repeating: 0, count: 32);
+        memcpy(&bfHash, data32, 32);
+        bfHash.reverse();
+        
+        var tmpPubKey = ECPubKey()
+        var k1 = NU512()
+        var k = NU512()
+        var h = NU512(bytes: &bfHash, count: 32);
+        
+        var Rx :NU512 = NU512.zeroN() ;
+        var privateKey = NU512();
         defer{
+            privateKey.clear()
+            k1.clear()
+            k.clear()
             bfTmpR.resetBytes(in: 0..<bfTmpR.count);
             bfHash.resetBytes(in: 0..<bfTmpR.count);
             bfTmp.resetBytes(in: 0..<bfTmpR.count);
             tmpN.clear()
+            tmpPubKey.clear()
+            Rx.clear()
+            h.clear()
             
         }
         
-        memcpy(&bfHash, data32, 32);
-        bfHash.reverse();
-        let h = NU512(bytes: &bfHash, count: 32);
-        
-        var Rx :NU512 = NU512.zeroN() ;
+       
+      
         var retry = false;
         repeat{
             retry = false;
@@ -488,8 +523,9 @@ class EC{
                 continue;
             }
             
-            let  tmpPubKey = try! createPubKey(secBytes32: &bfTmpR);
-            Rx = tmpPubKey.x
+            try! createPubKey(secBytes32: &bfTmpR,pubKey: &tmpPubKey);
+            Rx === tmpPubKey.x
+     
             
             if Rx == 0 {
                 retry = true;
@@ -497,20 +533,23 @@ class EC{
             }
             retry = !isSecKeyByteValid(byte32: bfTmpR)
             
-            var k = NU512(bytes: bfTmpR, count: secKeyBufferLength)
-            var k1 = NU512()
-            defer{
-                k.clear()
-                k1.clear()
-            }
-            
+            k.fill(bytes: bfTmpR, count: secKeyBufferLength);
             k.exGCD(Order,Result: &k1);
             
-            var privateKey = NU512(bytes: seckey, count: secKeyBufferLength);
+            privateKey.fill(bytes: seckey, count: secKeyBufferLength)
+            
+            var tmp = NU512();
             defer{
-                privateKey.clear()
+                tmp.clear();
             }
-            let sign = (k1 * ( (h + privateKey * Rx ) % Order)) % Order;
+            tmp === Rx
+            tmp *= privateKey
+            tmp += h
+            tmp %= Order
+            tmp *= k1
+            tmp %= Order
+            // (h + dA * Rx) * k1
+            let sign = tmp
             var rxArr =  Rx.to32Bytes()
             rxArr.reverse()
             var signArr =  sign.to32Bytes()
@@ -539,29 +578,35 @@ class EC{
         memcpy(&Hash, hash, 32);
         Hash.reverse();
         
-        let h = NU512(bytes: &Hash, count: 32);
+        var h = NU512(bytes: &Hash, count: 32);
      
         var  S :NU512 = NU512.zeroN();
         var  Rx:NU512 = NU512.zeroN();
+        var s1 = NU512()
+        defer{
+            S.clear()
+            Rx.clear()
+            h.clear()
+            s1.clear()
+        }
         SignData.withUnsafeBytes { bf  in
-            S = NU512(bytes: bf.baseAddress!, count: 32)
-            Rx = NU512(bytes: bf.baseAddress!.advanced(by: 32), count: 32)
+            S.fill(bytes: bf.baseAddress!, count: 32)
+            Rx.fill(bytes: bf.baseAddress!.advanced(by: 32), count: 32)
         }
         //  R =  s1 (h G  + P • Rx)
-        var s1 = NU512()
-        
-
         
         S.exGCD(Order,Result: &s1)
-        var P2 = pointTimes(P: G , s: h)
-        var P3 = pointTimes(P: pubKey , s: Rx)
+        var P2 = ECPubKey()
+        var P3 = ECPubKey()
+        pointTimes(P: G , s: h,R: &P2)
+        pointTimes(P: pubKey , s: Rx,R: &P3)
         
-        var R = ZeroPoint;
+        var R = ECPubKey()
         pointAdd(P: P2 , Q: P3 , R: &R)
-        R = pointTimes(P: R , s: s1);
+        pointTimes(P: R , s: s1,R: &R);
         let r = R.x == Rx
         defer{
-            s1.clear()
+            R.clear()
             P2.clear()
             P3.clear()
         }
@@ -573,7 +618,8 @@ class EC{
     func ecdh(secKeyA: ECSecKey,pubKeyB:ECPubKey,outBf64:UnsafeMutableRawPointer){
         
         var s = NU512(bytes: secKeyA, count: secKeyBufferLength);
-        var dh = pointTimes(P: pubKeyB, s: s);
+        var dh = ECPubKey()
+        pointTimes(P: pubKeyB, s: s,R: &dh);
         s.clear();
         defer{
             dh.clear()
@@ -593,7 +639,8 @@ class EC{
         
         
         var secKey = NU512(bytes: &keyBuffer , count: secKeyBufferLength);
-        var pubKey = pointTimes(P: G , s: secKey);
+        var pubKey = ECPubKey()
+        pointTimes(P: G , s: secKey,R: &pubKey);
         
         defer{
             keyBuffer.resetBytes(in: 0..<keyBuffer.count)
@@ -622,16 +669,15 @@ class EC{
             CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),tmp ,64,tmpdata,128,outBf32);
         }while !isSecKeyByteValid(byte32: outBf32)
     }
-    func createPubKey(secBytes32:ECSecKey) throws -> ECPubKey{
+    func createPubKey(secBytes32:ECSecKey ,pubKey:inout ECPubKey) throws {
         
         if !isSecKeyByteValid(byte32: secBytes32){
             throw EC_Err.SeckeyDataNotValid
         }
         var s = NU512(bytes: secBytes32, count: secKeyBufferLength);
-        let P = pointTimes(P: G , s: s);
-        s.clear()
         
-        return P;
+        pointTimes(P: G , s: s,R: &pubKey);
+        s.clear()
     }
 
     
@@ -675,12 +721,16 @@ extension EC.Point{
 
 extension NU512{
     
+    mutating func fill( bytes:UnsafeRawPointer,count:Int){
+        _ = mp_unpack(&value, count, MP_LSB_FIRST, 1, MP_LITTLE_ENDIAN, 0, bytes)
+    }
     
     /// little endian
     init( bytes:UnsafeRawPointer,count:Int){
         self.init();
         _ = mp_unpack(&value, count, MP_LSB_FIRST, 1, MP_LITTLE_ENDIAN, 0, bytes)
     }
+    
     
     // big endian hex
     init(hex:String){

@@ -85,7 +85,8 @@ class LTEccTool {
             genSecKey(&_keysNew);
         }
         let strPriKey = ec.serializeSecKeyBytes(&_keysNew)
-        var pubkey = try ec.createPubKey(secBytes32: &_keysNew)
+        var pubkey = ECPubKey()
+        try ec.createPubKey(secBytes32: &_keysNew,pubKey: &pubkey)
         defer{
             pubkey.clear()
         }
@@ -199,7 +200,11 @@ class LTEccTool {
             randBuffer(&randKey, kECPrivateKeyByteCount);
         }
         
-        var randomPub = try! ec.createPubKey(secBytes32: &randKey)
+        var randomPub = ECPubKey()
+        defer{
+            randomPub.clear()
+        }
+        try! ec.createPubKey(secBytes32: &randKey,pubKey: &randomPub)
         
         var outHash = [UInt8](repeating: 0, count: 64);
         defer {
@@ -766,7 +771,8 @@ class LTEccTool {
             randBuffer(&randKey, kECPrivateKeyByteCount);
             genSecKey(&randKey);
         }
-        var randomPub = try! ec.createPubKey(secBytes32: &randKey);
+        var randomPub = ECPubKey()
+        try! ec.createPubKey(secBytes32: &randKey,pubKey: &randomPub);
         defer{
             randomPub.clear()
         }

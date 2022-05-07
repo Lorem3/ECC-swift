@@ -68,7 +68,7 @@ func printKey(key:Data){
     
 }
 
-let Version = "1.2.1"
+let Version = "1.2.2"
 
 let helpMsg = """
 ecc \(Version)
@@ -273,7 +273,6 @@ repeat{
             }else{
                 t = CryptAlgorithm.salsa20
             }
-            
             
             if files is Array<Any>{
                 for file in files as! [String] {
