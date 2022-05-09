@@ -465,7 +465,7 @@ class LTEccTool {
         
     }
     
-    func ecDecryptFile(filePath:String,outFilePath:String?,prikeyString:String) throws{
+    func ecDecryptFile(filePath:String,outFilePath:String?,prikeyString:String ,recursion:Bool = false) throws{
         let inFilePath = dealPath(filePath);
         var outpath:String
         if outFilePath == nil {
@@ -481,7 +481,33 @@ class LTEccTool {
         var isDir = false as ObjCBool
         if(FileManager.default.fileExists(atPath: inFilePath, isDirectory: &isDir)){
             if isDir.boolValue == true {
-                throw LECCError.inputIsDirectory;
+//                throw LECCError.inputIsDirectory;
+                let arr = try! FileManager.default.contentsOfDirectory(atPath: inFilePath)
+                for path  in arr  {
+                    do {
+                        let sPath = inFilePath + "/\(path)";
+                        if sPath.hasSuffix(".ec"){
+                            try ecDecryptFile(filePath: sPath, outFilePath: nil , prikeyString: prikeyString, recursion: recursion);
+                        }else{
+                            FileManager.default.fileExists(atPath: sPath, isDirectory: &isDir)
+                            
+                            if recursion && isDir.boolValue{
+                                print("subDir \(sPath)")
+                                try ecDecryptFile(filePath: sPath, outFilePath: nil , prikeyString: prikeyString, recursion: recursion);
+                            }else{
+                                print("skip \(path)")
+                            }
+                        }
+                            
+                        
+                    }
+                    catch let e {
+                        redPrint(e);
+                    }
+                }
+                return;
+                
+                
             }
         }
         
@@ -696,7 +722,7 @@ class LTEccTool {
         
     }
     
-    func ecEncryptFile(filePath:String,outFilePath:String?,pubkeyString:String,gzip:(Bool) = true ,alg:CryptAlgorithm) throws{
+    func ecEncryptFile(filePath:String,outFilePath:String?,pubkeyString:String,gzip:(Bool) = true ,alg:CryptAlgorithm,recursion :Bool = false) throws{
         var inFilePath = dealPath(filePath);
         
         var isDir = false as ObjCBool;
@@ -707,7 +733,27 @@ class LTEccTool {
                 for path  in arr  {
                     do {
                         let sPath = inFilePath + "/\(path)";
-                        try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , gzip:gzip,alg:alg);
+                        
+                        FileManager.default.fileExists(atPath: sPath, isDirectory: &isDir)
+                        
+                        if  isDir.boolValue{
+                            if recursion {
+                                print("subDir \(path)")
+                                try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , gzip:gzip,alg:alg,recursion:recursion);
+                            }else{
+                                print("subDir skip ...",path)
+                            }
+                        }
+                        else{
+                            if sPath.hasSuffix(".ec") || sPath.hasSuffix(".DS_Store"){
+                                print("skip",sPath)
+                            }else{
+                                try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , gzip:gzip,alg:alg,recursion:false);
+                            }
+                            
+                        }
+                        
+                        
                     }
                     catch let e {
                         redPrint(e);
