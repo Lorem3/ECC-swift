@@ -224,7 +224,7 @@ func main(){
                 }
                 
                 
-                if kp != nil && CommandLine.arguments.contains("-S"){
+                if CommandLine.arguments.contains("-S"){
                     
                     print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
                     let s = readLine();

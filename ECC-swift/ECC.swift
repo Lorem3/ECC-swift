@@ -481,8 +481,12 @@ class LTEccTool {
         var isDir = false as ObjCBool
         if(FileManager.default.fileExists(atPath: inFilePath, isDirectory: &isDir)){
             if isDir.boolValue == true {
+                if checkDirWorking(dir: inFilePath){
+                    return
+                }
 //                throw LECCError.inputIsDirectory;
                 let arr = try! FileManager.default.contentsOfDirectory(atPath: inFilePath)
+                setDirFlag(dir: inFilePath, working: true)
                 for path  in arr  {
                     do {
                         let sPath = inFilePath + "/\(path)";
@@ -492,7 +496,7 @@ class LTEccTool {
                             FileManager.default.fileExists(atPath: sPath, isDirectory: &isDir)
                             
                             if recursion && isDir.boolValue{
-                                print("subDir \(sPath)")
+                                print("subDir \(path)")
                                 try ecDecryptFile(filePath: sPath, outFilePath: nil , prikeyString: prikeyString, recursion: recursion);
                             }else{
                                 print("skip \(path)")
@@ -505,6 +509,9 @@ class LTEccTool {
                         redPrint(e);
                     }
                 }
+                
+                
+                setDirFlag(dir: inFilePath, working: false)
                 return;
                 
                 
@@ -721,15 +728,33 @@ class LTEccTool {
         print("output",realOutPath)
         
     }
+    static var rnd = SystemRandomNumberGenerator();
+    static var dirFlag = ".\(rnd.next())"
+    func setDirFlag(dir:String, working:Bool){
+        let flagFile = dir + "/" + LTEccTool.dirFlag;
+        if working{
+            FileManager.default.createFile(atPath: flagFile, contents: nil , attributes: nil )
+        }else{
+            try? FileManager.default.removeItem(atPath: flagFile)
+        }
+    }
+    
+    func checkDirWorking(dir:String) -> Bool{
+        let flagFile = dir + "/" + LTEccTool.dirFlag;
+        return FileManager.default.fileExists(atPath: flagFile)
+    }
     
     func ecEncryptFile(filePath:String,outFilePath:String?,pubkeyString:String,gzip:(Bool) = true ,alg:CryptAlgorithm,recursion :Bool = false) throws{
         var inFilePath = dealPath(filePath);
         
         var isDir = false as ObjCBool;
         if(FileManager.default.fileExists(atPath: inFilePath, isDirectory: &isDir)){
-            if isDir.boolValue == true {
-                
+            if isDir.boolValue == true  {
+                if checkDirWorking(dir: inFilePath){
+                   return
+                }
                 let arr = try! FileManager.default.contentsOfDirectory(atPath: inFilePath)
+                setDirFlag(dir: inFilePath, working: true)
                 for path  in arr  {
                     do {
                         let sPath = inFilePath + "/\(path)";
@@ -745,7 +770,9 @@ class LTEccTool {
                             }
                         }
                         else{
-                            if sPath.hasSuffix(".ec") || sPath.hasSuffix(".DS_Store"){
+                            if sPath.hasSuffix(".ec")
+                                || sPath.hasSuffix(".DS_Store")
+                                || sPath.hasSuffix(LTEccTool.dirFlag){
                                 print("skip",sPath)
                             }else{
                                 try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , gzip:gzip,alg:alg,recursion:false);
@@ -759,6 +786,7 @@ class LTEccTool {
                         redPrint(e);
                     }
                 }
+                setDirFlag(dir: inFilePath, working: false)
                 return;
             }
         }

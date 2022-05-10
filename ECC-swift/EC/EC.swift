@@ -821,7 +821,6 @@ extension NU512{
         
         _pow(a: a, x: x_2, p: p, R: &R);
         
-        let r0 = R;
         R = (R * R) % p;
        
         
