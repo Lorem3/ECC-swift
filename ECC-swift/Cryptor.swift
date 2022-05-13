@@ -26,13 +26,13 @@ class Cryptor{
         case .aes256:
             CCCryptorCreate(CCOperation(encrypt ?kCCEncrypt :kCCDecrypt), CCAlgorithm(kCCAlgorithmAES), CCOptions(kCCOptionPKCS7Padding), key, kCCKeySizeAES256, iv, &cc);
         case .salsa20:
-            var key = [UInt8](repeating: 0, count: keyLen);
+            var key1 = [UInt8](repeating: 0, count: keyLen);
             var nonce = [UInt8](repeating: 0, count: ivLen);
-            memcpy(&key, key, keyLen);
+            memcpy(&key1, key, keyLen);
             memcpy(&nonce, iv, ivLen);
             
-            sa = try! Salsa20(key:key,nonce:nonce)
-            memset(&key , 0, keyLen);
+            sa = try! Salsa20(key:key1,nonce:nonce)
+            memset(&key1 , 0, keyLen);
             memset(&nonce , 0, ivLen);
         }
         
