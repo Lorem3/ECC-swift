@@ -195,9 +195,7 @@ class LTEccTool {
         
         
         var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
-        randKey[0] = 2
-        // debug
-//        genSecKey(&randKey);
+        genSecKey(&randKey);
         defer {
             randBuffer(&randKey, kECPrivateKeyByteCount);
         }
