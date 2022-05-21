@@ -275,6 +275,7 @@ func main(){
                 strPubKey = LEccKeyChain.shared.getPublicKeyInKeychain();
             }
             
+            
             if(strPubKey == nil){
                 Lprint("need pubkey ,use -p pubkey");
                 exit(1);
@@ -446,5 +447,5 @@ func main(){
 
 main();
 
-//let t = Test();
-//t.test();
+let t = Test();
+t.test();

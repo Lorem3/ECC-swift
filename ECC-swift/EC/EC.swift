@@ -237,8 +237,20 @@ class EC{
                 Xbuff.reverse();
                 let x = NU512(bytes: &Xbuff, count: secKeyBufferLength);
                 let P = getPoint(x: x,odd: first == 3);
+                var tmpR = Point()
+                defer{
+                    tmpR.clear();
+                }
+                
+                /// every point in G has the Same order of Point G ,as Order is Prime Number
+                _pointTimes(P: P, s: Order,R:&tmpR);
+                guard tmpR == ZeroPoint else{
+                    /// Point is not in Group of G
+                    throw EC_Err.PubkeyDataError
+                }
                 
                 Xbuff.resetBytes(in: 0..<Xbuff.count);
+                
                 
                 
                 return P;
@@ -920,16 +932,28 @@ extension NU512{
      
     
     func exGCD(_ P: NU512,Result:inout NU512) {
-        binaryExGcd(P , result: &Result)
+    
+        var v2 = NU512();
+        defer{
+            v2.clear()
+        }
+        binaryExGcd(P , result: &v2)
+        Result === v2
         
-//        var z = NU512();
+        
+        
+//        var v3 = NU512()
+//
 //        _ = withUnsafePointer(to: value) { pa  in
 //            _ = withUnsafePointer(to: P.value) { pp in
-//                mp_invmod(pa , pp , &z.value)
+//                mp_invmod(pa , pp , &v3.value)
 //            }
 //
 //        }
-//        return z;
+//
+//        v3.printHex("v3");
+//        v2.printHex("v2");
+    
     }
     
      
@@ -982,8 +1006,12 @@ extension NU512{
             inverse2.clear()
         }
         
-  
         while true{
+            
+            if A == 0{
+                result.set(u32: 0)
+                return
+            }
             if A == 1{
                 break
             }
@@ -996,6 +1024,7 @@ extension NU512{
             if A > B {
                 mp_exch(&A.value, &B.value)
                 mp_exch(&u.value, &v.value)
+                continue;
             }
             
             let isAOdd = A.isOdd();
@@ -1034,12 +1063,13 @@ extension NU512{
                      */
                     u >>= 1;
                     u += inverse2
+                    u %= P
                     
                 }else{
                     u >>= 1
                 }
                 
-                u %= P
+                
                 
                 
             }else if(!isBOdd){
@@ -1054,12 +1084,13 @@ extension NU512{
                     
                     v >>= 1;
                     v += inverse2;
+                    v %= P
                     
                 }else{
                     v >>= 1;
                 }
                 
-                v %= P
+                
                 
             }
         }

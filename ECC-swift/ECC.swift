@@ -191,11 +191,13 @@ class LTEccTool {
      
     
     func ecEncrypt(data:Data,pubKey:String ,zipfirst:Int = 1,type:CryptAlgorithm) throws ->Data{
-        var pubkey = try! ec.readPubKey(pubKey);
+        let pubkey = try! ec.readPubKey(pubKey);
         
         
         var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
-        genSecKey(&randKey);
+        randKey[0] = 2
+        // debug
+//        genSecKey(&randKey);
         defer {
             randBuffer(&randKey, kECPrivateKeyByteCount);
         }
