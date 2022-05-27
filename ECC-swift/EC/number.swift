@@ -17,11 +17,14 @@ import libtommath
 }
 
 
-struct NU512{
+class NU512{
     var value:mp_int
     init(){
         value = mp_int()
         _ = mp_init(&value)
+    }
+    deinit{
+        self.clear();
     }
 }
 
@@ -37,7 +40,7 @@ extension NU512{
     func isNegtive() -> Bool{
         return (self.value.sign == MP_NEG)
     }
-    mutating func setNeg(){
+    func setNeg(){
         withUnsafePointer(to: value) { a  in
             mp_neg(a , &value)
             
@@ -234,10 +237,10 @@ extension NU512{
         }
     }
     
-    mutating func set(u32:UInt32){
+    func set(u32:UInt32){
         mp_set_u32(&value, u32)
     }
-    init(u32:UInt32){
+    convenience init(u32:UInt32){
         self.init();
         _ = mp_init_u32(&value, u32)
     }
@@ -324,9 +327,8 @@ extension NU512{
     }
     
     
-    mutating func clear(){
+    func clear(){
         if(value.dp == nil){
-            print("22")
             return;
         }
         mp_zero(&value)

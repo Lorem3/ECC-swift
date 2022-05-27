@@ -148,21 +148,24 @@ extension Data {
             }
             let outputCount = decompressed.count;
             
-            decompressed.withUnsafeMutableBytes { (bf:UnsafeMutableRawBufferPointer) in
+            try decompressed.withUnsafeMutableBytes { (bf:UnsafeMutableRawBufferPointer) in
                 self.withUnsafeBytes { bfIn in
                     strm.next_in = UnsafeMutablePointer<UInt8> (mutating: bfIn.baseAddress?.bindMemory(to: UInt8.self, capacity: bfIn.count))?.advanced(by: Int(strm.total_in));
+                    
+                    
+                    strm.next_out = bf.baseAddress?.bindMemory(to: UInt8.self, capacity: bf.count).advanced(by: Int(strm.total_out));
+                    
+                    strm.avail_out = uInt(outputCount) - uInt(strm.total_out)
+                    status = inflate (&strm, Z_SYNC_FLUSH);
                 }
                 
-                strm.next_out = bf.baseAddress?.bindMemory(to: UInt8.self, capacity: bf.count).advanced(by: Int(strm.total_out));
                 
-                strm.avail_out = uInt(outputCount) - uInt(strm.total_out)
-                status = inflate (&strm, Z_SYNC_FLUSH);
                 
                 if (status == Z_STREAM_END) {
                     done = true
                 }
                 else if (status != Z_OK) {
-                    
+                    throw GZIPError(GzErrorCode.decompressFail,"fail \(#line)");
                 }
             }
             

@@ -226,7 +226,7 @@ class EC{
         }
     }
     
-    func readPubKey(_ buffer:UnsafeRawPointer, count:Int) throws -> ECPubKey{
+    func readPubKey(_ buffer:UnsafeRawPointer, count:Int ,R:inout ECPubKey) throws {
         if(count == 33){
             let bf = buffer.bindMemory(to: UInt8.self, capacity: count);
             let first = bf[0];
@@ -236,10 +236,17 @@ class EC{
                 /// pubkey is big endian
                 Xbuff.reverse();
                 let x = NU512(bytes: &Xbuff, count: secKeyBufferLength);
-                let P = getPoint(x: x,odd: first == 3);
+                var P = Point()
+                
+                getPoint(x: x,odd: first == 3,R:&P);
+                if P == ZeroPoint{
+                    throw EC_Err.PubkeyDataError
+                }
+                
                 var tmpR = Point()
                 defer{
                     tmpR.clear();
+                    P.clear()
                 }
                 
                 /// every point in G has the Same order of Point G ,as Order is Prime Number
@@ -253,7 +260,8 @@ class EC{
                 
                 
                 
-                return P;
+                R === P;
+                return;
             }
             
             throw EC_Err.PubkeyFormatError
@@ -265,14 +273,21 @@ class EC{
                 memcpy(&numberBuffer, bf.advanced(by: 1), XBufferLength);
                 numberBuffer.reverse();
                 
-                let x = NU512(bytes: &numberBuffer, count: XBufferLength);
+                var x = NU512(bytes: &numberBuffer, count: XBufferLength);
                 memcpy(&numberBuffer, bf.advanced(by: 33), XBufferLength);
                 numberBuffer.reverse();
-                let y = NU512(bytes: &numberBuffer, count: XBufferLength);
-                let P = getPoint(x: x,odd: y.isOdd());
+                var y = NU512(bytes: &numberBuffer, count: XBufferLength);
+                var P = Point();
+                getPoint(x: x,odd: y.isOdd(),R:&P);
+                defer{
+                    P.clear()
+                    y.clear()
+                    x.clear()
+                }
                 
                 if(P.y == y){
-                    return P;
+                    R === P
+                    return;
                 }
                 throw EC_Err.PubkeyDataError
             }
@@ -281,25 +296,37 @@ class EC{
             throw EC_Err.PubkeyLengthError
         }
     }
-    func readPubKey(_ base64str:String) throws -> Point{
+    func readPubKey(_ base64str:String,R:inout Point) throws{
         let data = Data(base64Encoded: base64str)!;
         
-        return data.withUnsafeBytes { bf  in
-            return try! readPubKey(bf.baseAddress!, count: bf.count);
+        data.withUnsafeBytes { bf  in
+            try! readPubKey(bf.baseAddress!, count: bf.count,R:&R);
         }
     }
     
     /// here we just return 1 Point the other y2 = Prime - y1
-    func getPoint(x:NU512 ,odd:Bool = true) -> (Point){
+    func getPoint(x:NU512 ,odd:Bool = true, R:inout Point){
         // y^2 = x^3 + ax + b mod Prime
         let k = (((x * x % Prime) * x) % Prime + a * x + b) % Prime;
-        let y = k.cipolla_sqrt(P: Prime);
         
+        var y = NU512()
+        defer{
+            k.clear()
+            y.clear()
+        }
+        k.cipolla_sqrt(P: Prime,R: &y);
+        if(y.isZero()){
+            R === ZeroPoint;
+            return
+        }
         
         if odd != (y.isOdd()){
-            return Point(x,Prime - y)
+            y.setNeg()
+            y += Prime
+       
         }
-        return Point(x,y)
+        R.x === x
+        R.y === y
         
         
     }
@@ -733,19 +760,19 @@ extension EC.Point{
 
 extension NU512{
     
-    mutating func fill( bytes:UnsafeRawPointer,count:Int){
+    func fill( bytes:UnsafeRawPointer,count:Int){
         _ = mp_unpack(&value, count, MP_LSB_FIRST, 1, MP_LITTLE_ENDIAN, 0, bytes)
     }
     
     /// little endian
-    init( bytes:UnsafeRawPointer,count:Int){
+    convenience init( bytes:UnsafeRawPointer,count:Int){
         self.init();
         _ = mp_unpack(&value, count, MP_LSB_FIRST, 1, MP_LITTLE_ENDIAN, 0, bytes)
     }
     
     
     // big endian hex
-    init(hex:String){
+    convenience init(hex:String){
         self.init();
         hex.withCString { cs  in
             mp_read_radix(&value, cs , 0x10);
@@ -857,14 +884,16 @@ extension NU512{
     typealias ComplexNum = (x:NU512,y:NU512)
     
     /// find x ^ 2 = self mode P
-    func cipolla_sqrt(P:NU512) -> NU512{
+    func cipolla_sqrt(P:NU512 ,R:inout NU512){
         let n = self;
         if n == 0{
-            return NU512.zeroN()
+            R.set(u32: 0);
+            return
         }
         
         if !eulerJudge(a:n,p:P){
-            return NU512.zeroN()
+            R.set(u32: 0);
+            return;
         }
         var a = NU512.zeroN()
         var A2_N = NU512.zeroN()
@@ -881,8 +910,9 @@ extension NU512{
         }while eulerJudge(a: A2_N, p: P)
         
         let n1 = NU512(u32: 1);
-        let r = pow2((x:a,y:n1), A2_N, (P + n1) / 2, P);
-        return r.x % P;
+        var r = pow2((x:a,y:n1), A2_N, (P + n1) / 2, P);
+        r.x %= P;
+        R === r.x
     }
     
     func pow2(_ xy:ComplexNum,_ A2_N:NU512,_ k:NU512,_ p:NU512) -> ComplexNum{

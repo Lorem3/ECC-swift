@@ -191,7 +191,8 @@ class LTEccTool {
      
     
     func ecEncrypt(data:Data,pubKey:String ,zipfirst:Int = 1,type:CryptAlgorithm) throws ->Data{
-        let pubkey = try! ec.readPubKey(pubKey);
+        var pubkey = ECPubKey();
+        try! ec.readPubKey(pubKey,R:&pubkey);
         
         
         var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
@@ -291,8 +292,9 @@ class LTEccTool {
         }
         
         /// 随机私钥生成的公钥。
-        let ephemPubKey = encResult.ephemPubkeyData.withUnsafeBytes { bf  in
-            return try! ec.readPubKey(bf.baseAddress!, count: bf.count);
+        var ephemPubKey = ECPubKey();
+        encResult.ephemPubkeyData.withUnsafeBytes { bf in
+            try! ec.readPubKey(bf.baseAddress!, count: bf.count,R:&ephemPubKey);
         }
         
         var outHash = [UInt8](repeating: 0, count: 64);
@@ -327,7 +329,7 @@ class LTEccTool {
         
         _ = encResult.dataEnc.withUnsafeBytes { bfEnc  in
             encResult.iv.withUnsafeBytes { bfIv in
-                let t = getCryptAlgrith(encResult.type);
+                var t = getCryptAlgrith(encResult.type);
                 let cy = Cryptor(type: t, key: outHash, keyLen: 32, iv: bfIv.baseAddress!, ivLen: bfIv.count ,encrypt:false);
                 
                 cy.crypt(bfIn: bfEnc.baseAddress!, bfInSize: bfEnc.count, bfOut: dataOut!, bfOutMax: dataOutAvailable, outSize: &outSize);
@@ -584,11 +586,12 @@ class LTEccTool {
             privateKey.resetBytes(in: 0..<privateKey.count)
         }
         try ec.readSecKey(prikeyString, keyOut: &privateKey)
-        let pubKey = dataEphermPubKey?.withUnsafeBytes({ bf  in
-            return try! ec.readPubKey(bf.baseAddress!, count: bf.count);
+        var pubKey = ECPubKey();
+        dataEphermPubKey?.withUnsafeBytes({ bf  in
+            try! ec.readPubKey(bf.baseAddress!, count: bf.count,R:&pubKey);
         });
         
-        ec.ecdh(secKeyA: &privateKey, pubKeyB: pubKey!, outBf64: &dhHash)
+        ec.ecdh(secKeyA: &privateKey, pubKeyB: pubKey, outBf64: &dhHash)
         
         /// check mac iv empherpubkey dataenc
         ///
@@ -837,7 +840,8 @@ class LTEccTool {
         }
         var publen = ec.pubKeyBufferLength;
         var outPub = [UInt8](repeating: 0, count: publen);
-        var pubkey = try ec.readPubKey(pubkeyString)
+        var pubkey = ECPubKey();
+        try ec.readPubKey(pubkeyString,R:&pubkey);
        
         var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
         genSecKey(&randKey);
