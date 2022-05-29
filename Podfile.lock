@@ -1,9 +1,9 @@
 PODS:
-  - LTScrypt (0.0.3)
+  - LTScrypt (0.0.4)
   - SSKeychain (1.4.1)
 
 DEPENDENCIES:
-  - LTScrypt (from `https://github.com/vitock/scrypt`)
+  - LTScrypt (from `https://github.com/vitock/scrypt`, tag `0.0.4`)
   - SSKeychain
 
 SPEC REPOS:
@@ -13,16 +13,17 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   LTScrypt:
     :git: https://github.com/vitock/scrypt
+    :tag: 0.0.4
 
 CHECKOUT OPTIONS:
   LTScrypt:
-    :commit: b5e3a433be3bb866dcd5286e69524cd9ff960228
     :git: https://github.com/vitock/scrypt
+    :tag: 0.0.4
 
 SPEC CHECKSUMS:
-  LTScrypt: a29ca6669b435ecf2c1a10299a9ae320ef26379e
+  LTScrypt: 154686bb0a565789d91453f6c85dab8333cef7d2
   SSKeychain: 55cc80f66f5c73da827e3077f02e43528897db41
 
-PODFILE CHECKSUM: d960757218b664c51278f4ab46bc8cfa6282ab57
+PODFILE CHECKSUM: 14c3476d0a60ebc02840ca619fa74f477255d17e
 
 COCOAPODS: 1.11.3
