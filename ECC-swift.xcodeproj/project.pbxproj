@@ -260,7 +260,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\necho $BUILT_PRODUCTS_DIR\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/${EXECUTABLE_NAME}\nmkdir -p \"${SRCROOT}/release\"\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" \"${SRCROOT}/release/${EXECUTABLE_NAME}\"\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\nif [ $CONFIGURATION == \"Release\" ]; then\necho \"Release\"\necho $BUILT_PRODUCTS_DIR\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" ~/mybin/${EXECUTABLE_NAME}\nmkdir -p \"${SRCROOT}/release\"\ncp -f \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}\" \"${SRCROOT}/release/${EXECUTABLE_NAME}\"\nelse\necho \"DEBUG\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
