@@ -1332,9 +1332,13 @@ extension EC:ECFun{
     }
     func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer ,sharePoint:ECPubKeyPointer? = nil) throws{
         var pubObj = ECPubKey()
+        defer{
+            pubObj.clear()
+        }
         try readPubKey(pubKeyB, count: pubLen, R: &pubObj)
+        
         ecdhSha512(secKeyA: secKeyA, pubKeyB: pubObj, outBf64: outBf64)
-        pubObj.clear()
+        
     }
     
     func readPubKey(_ base64str:String,pubkey: ECPubKeyPointer) throws{
@@ -1349,6 +1353,26 @@ extension EC:ECFun{
     
     func seckeyToString(_ seckey:ECSecKeyPointer) throws -> String {
         return serializeSecKeyBytes(seckey)
+        
+    }
+    
+    
+    func convertPubKeyCanonical(pub:UnsafeRawPointer,pubSize:Int,toPub:ECPubKeyPointer) throws {
+        if pubSize == 65 {
+            var ep = ECPubKey()
+            defer{
+                ep.clear()
+            }
+            try readPubKey(pub , count: pubSize, R: &ep);
+            
+            serializePubKey(ep,toBytes: toPub)
+        }
+        else if pubLen == pubSize{
+            memcpy(toPub, pub, pubLen)
+        }else{
+            throw ECErr.PubkeyLengthError
+        }
+       
         
     }
     

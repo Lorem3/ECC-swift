@@ -629,8 +629,9 @@ class LTEccTool {
         }
         try ectool.ec.readSecKey(prikeyString, seckey: &privateKey)
         
-        _ = dataEphermPubKey?.withUnsafeBytes({ bf  in
-            memcpy(&pubKey, bf.baseAddress!, bf.count)
+        try dataEphermPubKey?.withUnsafeBytes({ bf  in
+            try ectool.ec.convertPubKeyCanonical(pub: bf.baseAddress!, pubSize: bf.count, toPub: &pubKey)
+            
         });
         
         try ectool.ec.ecdh(secKeyA: &privateKey, pubKeyB: &pubKey, outBf64: &dhHash,sharePoint: nil)

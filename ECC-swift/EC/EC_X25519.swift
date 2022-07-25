@@ -33,6 +33,8 @@ protocol ECFun{
     func pubkeyToString(_ pubkey:ECSecKeyPointer) throws -> String
     
     func generateSecBytes(_ secKey:ECSecKeyPointer);
+    
+    func convertPubKeyCanonical(pub:UnsafeRawPointer,pubSize:Int,toPub:ECPubKeyPointer) throws;
 }
 
 
@@ -180,5 +182,14 @@ class EC_X25519:ECFun{
         
         let d = Data(bytes: pubkey, count: pubLen)
         return   LTBase64.base64Encode(d)
+    }
+    
+    func convertPubKeyCanonical(pub:UnsafeRawPointer,pubSize:Int,toPub:ECPubKeyPointer) throws{
+        
+        if pubLen == pubSize {
+            memcpy(toPub, pub, pubSize)
+        }else{
+            throw ECErr.PubkeyLengthError
+        }
     }
 }
