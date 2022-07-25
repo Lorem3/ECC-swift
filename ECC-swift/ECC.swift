@@ -8,6 +8,7 @@
 import Foundation
 import CommonCrypto
 import zlib
+import CryptoKit
 
 
 private let SECP256K1_FLAGS_TYPE_CONTEXT :UInt32 =  (1 << 0);
@@ -19,7 +20,7 @@ private let SECP256K1_FLAGS_BIT_COMPRESSION = UInt32(1 << 8)
 private let SECP256K1_EC_COMPRESSED = (SECP256K1_FLAGS_TYPE_COMPRESSION | SECP256K1_FLAGS_BIT_COMPRESSION)
 
 
- 
+
 
 
 enum LECCError :Error{
@@ -33,6 +34,7 @@ enum LECCError :Error{
     case searilizeError
     case inputIsDirectory
     case nilError
+    case encDataError
 }
 
 class LTEccTool {
@@ -49,55 +51,64 @@ class LTEccTool {
         return (type & 2) == 0 ? .aes256 : .salsa20;
     }
     
-    @inline(__always) func getEncType(zip:Bool,alg:CryptAlgorithm) -> UInt16{
-        return (zip ? 0 : 1) | (alg == CryptAlgorithm.aes256 ? 0 : 2)
+    @inline(__always)  static  func getCurveType(_ type:UInt16) -> CurveType{
+        return (type & 4) == 0 ? .Secp256k1 : .Curve25519;
     }
     
-    static var shared = LTEccTool();
+    @inline(__always) func getEncType(zip:Bool,alg:CryptAlgorithm) -> UInt16{
+        return  (curveType == .Secp256k1 ? 0 : 4)  |  ((zip ? 0 : 1) | (alg == CryptAlgorithm.aes256 ? 0 : 2))
+    }
+    
+    static var Secp255k1 : LTEccTool  = {
+        return LTEccTool(CurveType.Secp256k1)
+    }()
+    
+    static var Curve25519 : LTEccTool  = {
+        return LTEccTool(CurveType.Curve25519)
+    }()
+    
 //    var ctx:OpaquePointer ;
     
-    let ec:EC;
-    
-    init() {
-        ec = EC();
+    let ec:ECFun;
+    let curveType:CurveType
+    init(_ curve:CurveType) {
+        
+        if curve == .Secp256k1{
+            curveType = curve
+            ec = EC()
+        }else if(curve == .Curve25519){
+            curveType = curve
+            ec = EC_X25519();
+        }else{
+            curveType = .Curve25519
+            ec = EC_X25519();
+        }
     }
     
     func randBuffer(_ s:UnsafeMutableRawPointer ,_ length:Int){
         arc4random_buf(s , length);
     }
     
-    func genKeyPair(_ privateKey:String?,keyPhrase:String? ,kdftype:Int = 1) throws ->  (pubKey:String,priKey:String) {
-        var _keysNew = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
+    func genKeyPair(_ privateKey:String?) throws ->  (pubKey:String,priKey:String) {
+        var _keysNew = [UInt8](repeating: 0, count: ec.secLen);
         
         if(privateKey != nil){
-            try ec.readSecKey(privateKey!, keyOut: &_keysNew);
+            try ec.readSecKey(privateKey!, seckey: &_keysNew);
         }
-        else if keyPhrase != nil {
-            let dataKey = keyPhrase?.data(using: .utf8);
-            dataKey!.withUnsafeBytes({ bfKey  in
-                KDF.generateKey(phrase: bfKey.baseAddress!, phraseSize: bfKey.count, type:kdftype == 1 ? KDFType.scrypt : KDFType.kdfv2, outKey: &_keysNew, outKeyLen: kECPrivateKeyByteCount)
-            })
-            // compatiable with lower version 
-            _keysNew.reverse();
-        }
-        
         else{
             genSecKey(&_keysNew);
         }
-        let strPriKey = ec.serializeSecKeyBytes(&_keysNew)
-        var pubkey = ECPubKey()
-        try ec.createPubKey(secBytes32: &_keysNew,pubKey: &pubkey)
-        defer{
-            pubkey.clear()
-        }
-        let strPubKey = ec.serializePubKey(pubkey);
+        let strPriKey = try ec.seckeyToString(&_keysNew)
+        var pub = [UInt8](repeating: 0, count: ec.pubLen);
+        ec.genPubKey(seckey: &_keysNew, pubkey: &pub)
+        let strPubKey = try ec.pubkeyToString(&pub);
         return (pubKey:strPubKey,priKey:strPriKey)
         
     }
     
     /// 生成一个合法的私钥
     private func genSecKey(_ secKey32:UnsafeMutableRawPointer){
-        ec.generateSecBytes(outBf32: secKey32);
+        ec.generateSecBytes(secKey32);
     }
     
     private func genSecKey(_ secKey32:UnsafeMutableRawPointer,phrase:String){
@@ -188,33 +199,28 @@ class LTEccTool {
         return dataOut;
         
     }
-     
+    static func ecEncrypt(data:Data,pubKey:String ,zipfirst:Int = 1,type:CryptAlgorithm) throws ->Data{
+        return try Curve25519.ecEncrypt(data: data, pubKey: pubKey, zipfirst:zipfirst, type: type);
+    }
     
     func ecEncrypt(data:Data,pubKey:String ,zipfirst:Int = 1,type:CryptAlgorithm) throws ->Data{
-        var pubkey = ECPubKey();
-        try! ec.readPubKey(pubKey,R:&pubkey);
+        var pubKeyEnc = [UInt8](repeating: 0, count: ec.pubLen)
+        try ec.readPubKey(pubKey, pubkey: &pubKeyEnc)
         
-        
-        var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
-        genSecKey(&randKey);
-        defer {
-            randBuffer(&randKey, kECPrivateKeyByteCount);
-        }
-        
-        var randomPub = ECPubKey()
-        defer{
-            randomPub.clear()
-        }
-        try! ec.createPubKey(secBytes32: &randKey,pubKey: &randomPub)
-        
+        var randKey = [UInt8](repeating: 0, count: ec.secLen);
+        var randPub = [UInt8](repeating: 0, count: ec.pubLen);
+        try ec.genKeyPair(seckey: &randKey, pubkey: &randPub)
         var outHash = [UInt8](repeating: 0, count: 64);
         defer {
-            outHash.resetBytes(in: 0..<outHash.count)
+            pubKeyEnc.resetAllBytes()
+            randKey.resetAllBytes()
+            randPub.resetAllBytes()
+            outHash.resetAllBytes()
         }
+        
+        try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &outHash,sharePoint: nil)
+      
          
-        ec.ecdh(secKeyA: &randKey, pubKeyB: pubkey, outBf64: &outHash);
-        
-        
         var iv:[UInt8]
         if type == .aes256{
             iv = [UInt8](repeating: 0, count: kCCBlockSizeAES128);
@@ -246,10 +252,8 @@ class LTEccTool {
         
         let dataEnc = Data(bytes: dataOut!, count: outSize)
         let dataIv = Data(bytes: iv, count: iv.count)
-        var outPub = [UInt8](repeating: 0, count: ec.pubKeyBufferLength);
-        ec.serializePubKey(randomPub, toBytes: &outPub)
-        
-        let ephemPubkeyData = Data(bytes: outPub, count: ec.pubKeyBufferLength)
+ 
+        let ephemPubkeyData = Data(bytes: randPub, count: ec.pubLen)
         
         var dataForMac = Data(capacity: dataEnc.count + iv.count + ephemPubkeyData.count );
         dataForMac.append(dataIv);
@@ -257,16 +261,17 @@ class LTEccTool {
         dataForMac.append(dataEnc);
         
         
-        var macOut = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH));
+        var macOut = [UInt8](repeating: 0, count:32);
         dataForMac.withUnsafeBytes { bf  in
             outHash.withUnsafeBytes { bf2 in
-                let pData = bf.baseAddress?.bindMemory(to: UInt8.self, capacity: bf.count);
-                let outhash32 = bf2.baseAddress?.advanced(by: 32);
-                let pHmacKey = UnsafeRawPointer(outhash32);
-                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),pHmacKey,32,pData,bf.count,&macOut);
-            }
-            
-           
+                let pData = bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count);
+                let outhash32 = bf2.baseAddress!.advanced(by: 32);
+                let pHmacKey = outhash32.bindMemory(to: UInt8.self, capacity: 32);
+                
+                let ht = curveType == .Curve25519 ? HMACType.blake2b : .sha256
+                
+                HMAC.hmac(type: ht, key: pHmacKey, keyLen: 32, msg: pData, msgLen: bf.count, mac: &macOut, macLen: macOut.count)
+             }
         };
         
         
@@ -279,38 +284,66 @@ class LTEccTool {
         
     }
     
+    static func ecDecrypt(encData:Data,priKey:String) throws -> Data{
+        if encData.count > 10{
+            
+            let curve = encData.withUnsafeBytes { bf  -> CurveType in
+            var Zero = bf.baseAddress!.load(fromByteOffset: 0, as: UInt16.self);
+             Zero = CFSwapInt16HostToLittle(Zero);
+             return getCurveType(Zero)
+            }
+            
+            if curve == .Curve25519{
+                return try Curve25519.ecDecrypt(encData: encData, priKey: priKey)
+            }else{
+                return try Secp255k1.ecDecrypt(encData: encData, priKey: priKey)
+            }
+           
+            
+        }else{
+            throw LECCError.encDataError
+        }
+        
+    }
     
     func ecDecrypt(encData:Data,priKey:String) throws -> Data{
      
         let encResult = try deSearilizeToEncResult(encData);
         
-        var dataPrivate = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
-        try! ec.readSecKey(priKey, keyOut: &dataPrivate)
+        var dataPrivate = [UInt8](repeating: 0, count: ec.secLen);
+        /// 随机私钥生成的公钥。
+        var ephemPubKey = [UInt8](repeating: 0, count: ec.pubLen);
+        
+        try! ec.readSecKey(priKey, seckey: &dataPrivate)
         
         defer {
-            memset(&dataPrivate, 0, kECPrivateKeyByteCount)
+            dataPrivate.resetAllBytes()
+            ephemPubKey.resetAllBytes()
         }
         
-        /// 随机私钥生成的公钥。
-        var ephemPubKey = ECPubKey();
-        encResult.ephemPubkeyData.withUnsafeBytes { bf in
-            try! ec.readPubKey(bf.baseAddress!, count: bf.count,R:&ephemPubKey);
+        
+        _ = encResult.ephemPubkeyData.withUnsafeBytes { bf in
+            memcpy(&ephemPubKey, bf.baseAddress!, bf.count)
         }
         
         var outHash = [UInt8](repeating: 0, count: 64);
-        ec.ecdh(secKeyA: &dataPrivate, pubKeyB: ephemPubKey, outBf64: &outHash)
-        
+        try ec.ecdh(secKeyA: &dataPrivate, pubKeyB: &ephemPubKey, outBf64: &outHash,sharePoint: nil)
+    
         var dataForMac = Data(capacity: encResult.ephemPubkeyData.count + encResult.iv.count + encResult.dataEnc.count);
         
         dataForMac.append(encResult.iv);
         dataForMac.append(encResult.ephemPubkeyData);
         dataForMac.append(encResult.dataEnc);
-        var macOut = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH));
+        var macOut = [UInt8](repeating: 0, count:32 );
         
         outHash.withUnsafeBytes { bf2 in
-            let p = bf2.baseAddress?.advanced(by: 32);
+            let p = bf2.baseAddress?.advanced(by: 32).bindMemory(to: UInt8.self, capacity: 32);
             dataForMac.withUnsafeBytes { bf  in
-                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),p,32,bf.baseAddress,bf.count,&macOut);
+//                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),p,32,bf.baseAddress,bf.count,&macOut);
+                let ht = curveType == .Curve25519 ? HMACType.blake2b : .sha256
+
+                HMAC.hmac(type: ht, key: p!, keyLen: 32, msg: bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count), msgLen: bf.count, mac: &macOut, macLen: macOut.count)
+
             }
         }
          
@@ -347,8 +380,10 @@ class LTEccTool {
         }
     }
     
-    
     func dealPath(_ path:String) -> String{
+        return LTEccTool.dealPath(path)
+    }
+    static func dealPath(_ path:String) -> String{
         if(path.hasPrefix("/")){
             return String(NSString(string: path).standardizingPath)
         }
@@ -448,8 +483,10 @@ class LTEccTool {
             
         }while (readLen > 0);
     }
-    
     func dealOutPath(outpath:String) -> String{
+        return LTEccTool.dealOutPath(outpath: outpath)
+    }
+    static func dealOutPath(outpath:String) -> String{
         // check if outpat is exsit, if exsist ,change name by adding _i
         let pathComponets = outpath.split(separator: "/")
         var nameComponet = pathComponets.last!.components(separatedBy: ".")
@@ -467,7 +504,8 @@ class LTEccTool {
         
     }
     
-    func ecDecryptFile(filePath:String,outFilePath:String?,prikeyString:String ,recursion:Bool = false) throws{
+   
+    static func ecDecryptFile(filePath:String,outFilePath:String?,prikeyString:String ,recursion:Bool = false) throws{
         let inFilePath = dealPath(filePath);
         var outpath:String
         if outFilePath == nil {
@@ -571,41 +609,46 @@ class LTEccTool {
             throw LECCError.IsNotEnryptByEcc
         }
         
+        let ectool = getCurveType(type) == .Curve25519 ? Curve25519 : Secp255k1;
+        
         var tmpFile :String?
         var streamOut:OutputStream
         let realOutPath = outpath;
-        if isZiped(type) {
+        if ectool.isZiped(type) {
             tmpFile = outpath + String(format:".%x.gz",arc4random())
             outpath = tmpFile!;
         }
         
         var dhHash = [UInt8](repeating: 64, count: 0)
         
-        var privateKey = [UInt8](repeating: 0, count: ec.secKeyBufferLength);
+        var privateKey = [UInt8](repeating: 0, count: ectool.ec.secLen);
+        var pubKey = [UInt8](repeating: 0, count: ectool.ec.pubLen);
         defer{
-            privateKey.resetBytes(in: 0..<privateKey.count)
+            privateKey.resetAllBytes()
+            pubKey.resetAllBytes()
         }
-        try ec.readSecKey(prikeyString, keyOut: &privateKey)
-        var pubKey = ECPubKey();
-        dataEphermPubKey?.withUnsafeBytes({ bf  in
-            try! ec.readPubKey(bf.baseAddress!, count: bf.count,R:&pubKey);
+        try ectool.ec.readSecKey(prikeyString, seckey: &privateKey)
+        
+        _ = dataEphermPubKey?.withUnsafeBytes({ bf  in
+            memcpy(&pubKey, bf.baseAddress!, bf.count)
         });
         
-        ec.ecdh(secKeyA: &privateKey, pubKeyB: pubKey, outBf64: &dhHash)
+        try ectool.ec.ecdh(secKeyA: &privateKey, pubKeyB: &pubKey, outBf64: &dhHash,sharePoint: nil)
         
         /// check mac iv empherpubkey dataenc
-        ///
-        var  ctx = CCHmacContext();
-        dhHash.withUnsafeBytes { bf  in
-            CCHmacInit(&ctx,CCHmacAlgorithm(kCCHmacAlgSHA256),bf.baseAddress?.advanced(by: 32),32)
+        
+        let hmactype : HMACType = ectool.curveType == .Curve25519 ? .blake2b : .sha256
+        
+        let hmac = dhHash.withUnsafeBytes { bf  in
+            return HMAC(type: hmactype, key: bf.baseAddress!.advanced(by: 32).bindMemory(to: UInt8.self, capacity: 32), keyLength: 32, macLength: 32)
         }
         
         dataIv?.withUnsafeBytes({ bf  in
-            CCHmacUpdate(&ctx,bf.baseAddress,bf.count)
+            hmac.update(data: bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count), size: bf.count)
         })
         
         dataEphermPubKey?.withUnsafeBytes({ bf  in
-            CCHmacUpdate(&ctx,bf.baseAddress,bf.count)
+            hmac.update(data: bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count), size: bf.count)
         })
         
         
@@ -625,24 +668,25 @@ class LTEccTool {
         
         
         print(inFilePath);
-        _printProgress("check", 0);
+        ectool._printProgress("check", 0);
         while readLen > 0 {
-            CCHmacUpdate(&ctx, buffer, readLen);
+            hmac.update(data: buffer, size: readLen)
             readLen = streamIn.read(buffer, maxLength: BufferSize)
             currentDlt += readLen;
             checked += readLen;
             
             if currentDlt >= minDlt {
                 currentDlt = 0
-                _printProgress("check",  Float(Double(checked)/Double(fileSize!)));
+                ectool._printProgress("check",  Float(Double(checked)/Double(fileSize!)));
             }
         }
         
-        _printProgress("check", 1.0);
+        ectool._printProgress("check", 1.0);
         print("");
         
         var macOut = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-        CCHmacFinal(&ctx, &macOut);
+        hmac.finish(mac:&macOut )
+        
         let macCal = Data(bytes: macOut, count: macOut.count);
         if (macCal != dataMac){
             throw LECCError.DecryptMacNotFit
@@ -661,7 +705,7 @@ class LTEccTool {
         
         streamIn.setProperty(dataStartIndex, forKey: Stream.PropertyKey.fileCurrentOffsetKey)
         
-        let alg = getCryptAlgrith(type);
+        let alg = ectool.getCryptAlgrith(type);
         var cryptor_ : Cryptor?;
         
         dataIv!.withUnsafeBytes({ bf  in
@@ -683,7 +727,7 @@ class LTEccTool {
                 currentDelt += dataOutLen;
                 if (currentDelt >= minShowProgressSize) {
                     currentDelt = 0;
-                    _printProgress("decrypt", Float(currentDecrypt)/Float(encryptDataSize))
+                    ectool._printProgress("decrypt", Float(currentDecrypt)/Float(encryptDataSize))
                     
                 }
             }
@@ -696,20 +740,20 @@ class LTEccTool {
             streamOut.write(&dataOut, maxLength: dataOutLen);
             
         }
-        _printProgress("decrypt",1.0)
+        ectool._printProgress("decrypt",1.0)
         print("")
         
-        if tmpFile != nil && isZiped(type) {
+        if tmpFile != nil && ectool.isZiped(type) {
             print("unzipping, please wait...");
             fflush(stdout)
-            ungzipFile(infilePath: tmpFile!, outfilePath: realOutPath)
+            ectool.ungzipFile(infilePath: tmpFile!, outfilePath: realOutPath)
             print("\rUnzipping Done                                 " );
         }
         
         
         streamIn.close();
         streamOut.close();
-        if(tmpFile != nil && isZiped(type)){
+        if(tmpFile != nil && ectool.isZiped(type)){
             let  fzip  = tmpFile?.withCString({ bf  in
                  return  fopen(bf, "r+");
             })
@@ -720,7 +764,7 @@ class LTEccTool {
             var c = 0;
             var rnd = [UInt8](repeating: 0, count: 16);
             repeat{
-                randBuffer(&rnd, rnd.count);
+                ectool.randBuffer(&rnd, rnd.count);
                 fwrite(&rnd, rnd.count, 1, fzip)
                 c += rnd.count
             }while c < 1024 && c < sz
@@ -733,7 +777,7 @@ class LTEccTool {
     }
     static var rnd = SystemRandomNumberGenerator();
     static var dirFlag = ".\(rnd.next())"
-    func setDirFlag(dir:String, working:Bool){
+    static func setDirFlag(dir:String, working:Bool){
         let flagFile = dir + "/" + LTEccTool.dirFlag;
         if working{
             FileManager.default.createFile(atPath: flagFile, contents: nil , attributes: nil )
@@ -741,8 +785,13 @@ class LTEccTool {
             try? FileManager.default.removeItem(atPath: flagFile)
         }
     }
-    
+    func setDirFlag(dir:String, working:Bool){
+        LTEccTool.setDirFlag(dir: dir, working: working)
+    }
     func checkDirWorking(dir:String) -> Bool{
+        return LTEccTool.checkDirWorking(dir: dir)
+    }
+    static func checkDirWorking(dir:String) -> Bool{
         let flagFile = dir + "/" + LTEccTool.dirFlag;
         return FileManager.default.fileExists(atPath: flagFile)
     }
@@ -838,25 +887,20 @@ class LTEccTool {
         defer{
             dhHash.resetBytes(in: 0..<dhHash.count)
         }
-        var publen = ec.pubKeyBufferLength;
-        var outPub = [UInt8](repeating: 0, count: publen);
-        var pubkey = ECPubKey();
-        try ec.readPubKey(pubkeyString,R:&pubkey);
-       
-        var randKey = [UInt8](repeating: 0, count: kECPrivateKeyByteCount);
-        genSecKey(&randKey);
+        
+        
+        var pubKeyEnc = [UInt8](repeating: 0, count: ec.pubLen);
+        var randKey = [UInt8](repeating: 0, count: ec.secLen);
+        var randPub = [UInt8](repeating: 0, count: ec.pubLen);
+        try ec.genKeyPair(seckey: &randKey, pubkey: &randPub);
         defer{
-            randBuffer(&randKey, kECPrivateKeyByteCount);
-            genSecKey(&randKey);
-        }
-        var randomPub = ECPubKey()
-        try! ec.createPubKey(secBytes32: &randKey,pubKey: &randomPub);
-        defer{
-            randomPub.clear()
+            randPub.resetAllBytes()
+            randKey.resetAllBytes()
+            pubKeyEnc.resetAllBytes()
         }
         
-        ec.ecdh(secKeyA: &randKey, pubKeyB: pubkey, outBf64: &dhHash);
-        ec.serializePubKey(randomPub, toBytes: &outPub)
+        try ec.readPubKey(pubkeyString, pubkey: &pubKeyEnc)
+        try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &dhHash,sharePoint: nil);
         
         var macPostion = 0
         var macBuffer = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
@@ -874,7 +918,7 @@ class LTEccTool {
         
         var ivLen = UInt16(iv.count)
         var macLen = UInt16(CC_SHA256_DIGEST_LENGTH)
-        var ephemPubLen = UInt16(publen);
+        var ephemPubLen = UInt16(ec.pubLen);
         var Zero = getEncType(zip: gzip, alg: alg)
          
         ivLen = CFSwapInt16HostToLittle(ivLen);
@@ -902,7 +946,7 @@ class LTEccTool {
         
         streamOut.write(&iv , maxLength: Int(ivLen))
         streamOut.write(&macBuffer , maxLength: Int(macLen))
-        streamOut.write(&outPub , maxLength: Int(ephemPubLen))
+        streamOut.write(&randPub , maxLength: Int(ephemPubLen))
         
         /// we need update real hmac value after it's done, now it's all zero
         macPostion = 8 + Int(ivLen);
@@ -910,18 +954,20 @@ class LTEccTool {
         var cryptor:Cryptor
         cryptor = Cryptor(type: alg, key: &dhHash, keyLen: 32, iv: &iv, ivLen: iv.count);
          
-        var ctx:CCHmacContext = CCHmacContext();
+        
+        let hmactype : HMACType = curveType == .Curve25519 ? .blake2b : .sha256
+
         
         defer {
             cryptor.clean();
             self.randBuffer(&dhHash, dhHash.count);
         }
         
-        dhHash.withUnsafeBufferPointer { bf  in
-            CCHmacInit(&ctx, CCHmacAlgorithm(kCCHmacAlgSHA256) , bf.baseAddress?.advanced(by: 32), 32);
+        let hmac = dhHash.withUnsafeBytes { bf  in
+            return HMAC(type: hmactype, key: bf.baseAddress!.advanced(by: 32).bindMemory(to: UInt8.self, capacity: 32), keyLength: 32, macLength: 32)
         }
-        CCHmacUpdate(&ctx,&iv,iv.count)
-        CCHmacUpdate(&ctx,&outPub,publen);
+        hmac.update(data: &iv , size: iv.count)
+        hmac.update(data: &randPub , size: ec.pubLen)
         
         var readDateLen = 0;
         
@@ -953,7 +999,7 @@ class LTEccTool {
             
             // calculate hmac
             if encsize > 0 {
-                CCHmacUpdate(&ctx, bufferEncry, encsize);
+                hmac.update(data: bufferEncry, size: encsize)
                 streamOut .write(bufferEncry, maxLength: encsize);
                 encryptedDelt += encsize;
                 encryptedSize += encsize;
@@ -967,8 +1013,9 @@ class LTEccTool {
             readDateLen = streamIn.read(buffer ,maxLength:buffersize);
         }
         cryptor.final(bfOut: bufferEncry, bfOutMax: encbuffersize, outSize: &encsize);
-        CCHmacUpdate(&ctx,bufferEncry,encsize);
-        CCHmacFinal(&ctx, &macBuffer);
+        
+        hmac.update(data: bufferEncry, size: encsize)
+        hmac.finish(mac: &macBuffer)
         
         if encsize > 0 {
             streamOut.write(bufferEncry, maxLength: encsize);

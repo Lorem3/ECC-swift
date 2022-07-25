@@ -30,9 +30,9 @@ func readDataFromStdIn() -> Data{
     
 }
 
-func printKey(key:Data){
+func printKey(key:Data,title:String){
     let dataHash = try? LTBase64.base64Decode(key.sha256(base64: 1));
-    let randomart = RandomArt.randomArt(data: dataHash! , title: "[Secp251k1]", end: "[SHA 256]");
+    let randomart = RandomArt.randomArt(data: dataHash! , title: "[\(title)]", end: "[SHA 256]");
     
     print("ECC encryption privateKey finggerprint:\n\(key.sha256(base64: 1))\nrandomart:\n\(randomart)");
     
@@ -68,24 +68,33 @@ func printKey(key:Data){
     
 }
 
-let Version = "1.2.4"
+let Version = "2.0.0"
 
 let helpMsg = """
 ecc \(Version)
-g [-prikey/secKey/s prikey]  generate keypair [-k  passphrase/count pbkdf2] [-kt 1: scrypt default 2:pbkdf] [-S] saveto key chain
+g [-prikey/secKey/s prikey]  generate keypair  [-S]  saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] -r[recursion for directory]
    -a a:aes256 s:salsa20 default
 d  -prikey/s prikey -m base64ciphermsg  binary data from stdin [-f inputfilepath] [-o outpath] -r[recursion for directory]
 r  -m msg print random art of msg
 s  show saved key in keychain
 
+
+-c[urve] [s]ecp256k1 or [c]urve25519 [default]
+
 -z 0 ,if don't want gzip File(-f) before encrypt, sepecify this
 
 if you dont want to specify -s -p everytime ,
-set EC_SECKEY or EC_PUBKEY on current ENV
-export set EC_SECKEY=...
-export set EC_PUBKEY=...
-unset EC_PUBKEY EC_SECKEY
+set EC_SECKEY* or EC_PUBKEY* on current ENV
+export set EC_SECKEY*=...
+export set EC_PUBKEY*=...
+unset EC_PUBKEY* EC_SECKEY*
+for Secp256k1 use
+\(LEccKeyChain.shared.environmentPubKey(curveType: .Secp256k1))
+\(LEccKeyChain.shared.environmentSecKey(curveType: .Secp256k1))
+for Curve25519 use
+\(LEccKeyChain.shared.environmentPubKey(curveType: .Curve25519))
+\(LEccKeyChain.shared.environmentSecKey(curveType: .Curve25519))
 """
 
 func main(){
@@ -158,113 +167,53 @@ func main(){
             strSecKey = dicArg["prikey"] as! String?
         }
         
+        var curve = dicArg["curve"] as! String?
+        if(curve == nil){
+            curve = dicArg["c"] as! String?
+        }
+        
+        
+        let ectool :LTEccTool
+        if curve != nil && curve!.lowercased() == "s"{
+            ectool = LTEccTool.Secp255k1
+        }else {
+            ectool = LTEccTool.Curve25519
+        }
+        
+        
+        let EC_PUBKEY = LEccKeyChain.shared.environmentPubKey(curveType: ectool.ec.curveType)
+        
+        let EC_SECKEY = LEccKeyChain.shared.environmentSecKey(curveType: ectool.ec.curveType)
+        
         
         switch cmd {
         case "g":
-            let quiet = CommandLine.arguments.contains("-q")
             
-            var keyphrase = dicArg["k"] as! String?
             
-            if keyphrase != nil && strSecKey != nil {
-                print("seckey [s] is specified,the key phrass [k] will be ignored");
-            }
-            else if(keyphrase != nil){
-                var dataKeyPhrase =  keyphrase!.data(using: .utf8);
-                
-                // if length of keyphrase is less than 4 ,treat it as word count
-                if dataKeyPhrase!.count < 4 {
-                    let c =  Int(keyphrase!);
-                    keyphrase =  WordList.genKeyPhrase(c!);
-                    dataKeyPhrase = keyphrase!.data(using: .utf8)
-                }
-                if dataKeyPhrase!.count < 10{
-                    print("key phrase is too short < 10")
-                    exit(1)
-                }
-                
-                // Scrypt
-                var kdfType = 1;
-                let kt = dicArg["kt"] as! String?
-                if(kt != nil && kt   == "2"){
-                    kdfType = 2;
-                }
-                
-                let kp = try LTEccTool.shared.genKeyPair(nil, keyPhrase:keyphrase,kdftype: kdfType)
-                
-                if(kdfType == 1 && !quiet){
-                    let msg = """
-                scrypt N = 16384 r = 8 p = 1
-                salt [length \(KDF.scryptSalt.count)]:
-                \u{001B}[31;49m\(KDF.scryptSalt)\u{001B}[0;0m
-                
-                phrase [length \(keyphrase!.count)]:\u{001B}[31;49m\(keyphrase!)\u{001B}[0;0m
-                
-                """
-                    print(msg);
-                }else{
-                    print("Passphrase:(PBKDF2,sha256 ,salt:base64-Kj3rk8+cKYG8sAhXO5gkU5nRrBzuhhS7ts953vdhVHE= rounds:123456)");
-                    print("\u{001B}[31;49m\(keyphrase!) \u{001B}[0;0m")
-                }
-                
-                
-                let keyData = try  LTBase64.base64Decode(kp.priKey);
-                printKey(key: keyData)
-                if(!quiet){
-                    let resultStr = """
+            let kp = try ectool.genKeyPair(strSecKey )
+            
+            let keyData = try  LTBase64.base64Decode(kp.priKey);
+            if(true){
+                printKey(key: keyData,title: ectool.ec.name)
+                let resultStr = """
         prikey:\(kp.priKey)
         pubKey:\(kp.pubKey)
-        
-        unset EC_PUBKEY EC_SECKEY
-        export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
+        unset \(EC_PUBKEY) \(EC_SECKEY)
+        export set \(EC_PUBKEY)=\(kp.pubKey) \(EC_SECKEY)=\(kp.priKey)
         """
-                    print(resultStr);
-                }
-                else{
-                    print("\(kp.priKey) \(kp.pubKey)")
-                }
+                print(resultStr)
+            }
+            
+            
+            if kp != nil && CommandLine.arguments.contains("-S"){
                 
-                
-                if CommandLine.arguments.contains("-S"){
-                    
-                    print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
-                    let s = readLine();
-                    if(s == "Y" || s == "y"){
-                        LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp.priKey, publicKey: kp.pubKey)
-                    }
-                }
-                
-                
-                
-            }else {
-                let kp = try LTEccTool.shared.genKeyPair(strSecKey, keyPhrase:nil )
-                
-                let keyData = try  LTBase64.base64Decode(kp.priKey);
-                if(!quiet){
-                    printKey(key: keyData)
-                    let resultStr = """
-        prikey:\(kp.priKey)
-        pubKey:\(kp.pubKey)
-        unset EC_PUBKEY EC_SECKEY
-        export set EC_PUBKEY=\(kp.pubKey) EC_SECKEY=\(kp.priKey)
-        """
-                    print(resultStr)
-                }
-                else{
-                    print("\(kp.priKey) \(kp.pubKey)")
-                }
-                
-                
-                
-                
-                if kp != nil && CommandLine.arguments.contains("-S"){
-                    
-                    print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
-                    let s = readLine();
-                    if(s == "Y" || s == "y"){
-                        LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp.priKey, publicKey: kp.pubKey)
-                    }
+                print("\u{001B}[31;48m this action [-S] will overwite the key in keychain. continue[y/n] ? \u{001B}[0;0m")
+                let s = readLine();
+                if(s == "Y" || s == "y"){
+                    LEccKeyChain.shared.saveKeyInKeychain(secureKey: kp.priKey, publicKey: kp.pubKey,curveType: ectool.curveType)
                 }
             }
+            
             
         case "e":
             var strPubKey = dicArg["p"] as!  String?
@@ -272,7 +221,7 @@ func main(){
                 strPubKey = dicArg["pubKey"] as!  String?
             }
             if (strPubKey == nil){
-                strPubKey = LEccKeyChain.shared.getPublicKeyInKeychain();
+                strPubKey = LEccKeyChain.shared.getPublicKeyInKeychain(curveType: ectool.curveType);
             }
             
             
@@ -291,16 +240,16 @@ func main(){
                 
                 let t:CryptAlgorithm
                 let atype = dicArg["a"] as! String?
-                if(atype == "a"){
-                    t = CryptAlgorithm.aes256
-                }else{
+                if(atype == "s"){
                     t = CryptAlgorithm.salsa20
+                }else{
+                    t = CryptAlgorithm.aes256
                 }
                 
                 if files is Array<Any>{
                     for file in files as! [String] {
                         do {
-                            try LTEccTool.shared.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz, alg:t,recursion:recursion);
+                            try ectool.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz, alg:t,recursion:recursion);
                         }
                         catch let e {
                             redPrint(e)
@@ -309,7 +258,7 @@ func main(){
                     }
                     
                 }else if files is String{
-                    try LTEccTool.shared.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz,alg:t,recursion:recursion);
+                    try ectool.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz,alg:t,recursion:recursion);
                 }
                 
                 
@@ -328,15 +277,15 @@ func main(){
                 
                 let t:CryptAlgorithm
                 let atype = dicArg["a"] as! String?
-                if(atype == "a"){
-                    t = CryptAlgorithm.aes256
-                }else{
+                if(atype == "s"){
                     t = CryptAlgorithm.salsa20
+                }else{
+                    t = CryptAlgorithm.aes256
                 }
                 
                 let z = (dicArg["z"] as! String? != "0") ? 1 : 0
                 
-                let d = try LTEccTool.shared .ecEncrypt(data: dataMsg!, pubKey: strPubKey!,zipfirst: z,type: t);
+                let d = try ectool .ecEncrypt(data: dataMsg!, pubKey: strPubKey!,zipfirst: z,type: t);
                 
                 _ = d.withUnsafeBytes({ bf  in
                     fwrite(bf.baseAddress, 1, bf.count, stdout);
@@ -350,7 +299,7 @@ func main(){
                 seckey = dicArg["prikey"] as!  String?
             }
             if (seckey == nil){
-                seckey = LEccKeyChain.shared.getPrivateKeyInKeychain();
+                seckey = LEccKeyChain.shared.getPrivateKeyInKeychain(curveType: ectool.curveType);
             }
             
             if(seckey == nil){
@@ -365,7 +314,7 @@ func main(){
                 if files is Array<Any>{
                     for file in files as! [String] {
                         do{
-                            try LTEccTool.shared.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
+                            try LTEccTool.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
                         }
                         catch let e {
                             redPrint(e)
@@ -376,7 +325,7 @@ func main(){
                     
                 }else if files is String{
                     do{
-                        try LTEccTool.shared.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
+                        try LTEccTool.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
                     }catch let e {
                         Lprint(e)
                         redPrint(e)
@@ -396,26 +345,26 @@ func main(){
             }
             
             if dataMsg != nil {
-                let d = try LTEccTool.shared .ecDecrypt(encData: dataMsg!, priKey: seckey!);
+                let d = try LTEccTool.ecDecrypt(encData: dataMsg!, priKey: seckey!);
                 
                 _ = d.withUnsafeBytes({ bf  in
                     fwrite(bf.baseAddress, 1, bf.count, stdout);
                 })
             }
         case "s":
-            let s = LEccKeyChain.shared.getPrivateKeyInKeychain();
-            let g = LEccKeyChain.shared.getPublicKeyInKeychain();
+            let s = LEccKeyChain.shared.getPrivateKeyInKeychain(curveType: ectool.curveType);
+            let g = LEccKeyChain.shared.getPublicKeyInKeychain(curveType: ectool.curveType);
             if s != nil && g != nil {
                 
                 let dataOfSecure = try LTBase64.base64Decode(s!);
-                printKey(key: dataOfSecure)
+                printKey(key: dataOfSecure,title: ectool.ec.name)
                 let msg =
     """
     ----
     privateKey:\(s!)
     publicKey:\(g!)
-    export set EC_PUBKEY=\(g!) EC_SECKEY=\(s!)
-    unset EC_PUBKEY EC_SECKEY
+    export set \(EC_PUBKEY)=\(g!) \(EC_SECKEY)=\(s!)
+    unset \(EC_PUBKEY) \(EC_SECKEY)
     """
                 print(msg);
             }else{

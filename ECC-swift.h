@@ -9,6 +9,7 @@
 #define _BridgeHead_
 
 #import <CommonCrypto/CommonHMAC.h>
+#import "sodium.h"
 //#import "secp256k1.h"
 //#import <zlib.h>
 

@@ -11,22 +11,27 @@ import CommonCrypto
 import libtommath
 
 
-enum EC_Err :Error{
+enum ECErr :Error{
     case PubkeyLengthError
     case PubkeyFormatError
     case PubkeyDataError
     
     case SeckeyDataError
     case SeckeyDataNotValid
+    
+    case ECDHError
 }
 
-typealias ECPubKey = EC.Point;
-/// little-endian Interger
-typealias ECSecKey = UnsafeMutableRawPointer
-typealias ECKeyPair = (pubKey:String,priKey:String)
 
 
 class EC{
+    
+    typealias ECPubKey = EC.Point;
+    /// little-endian Interger
+    typealias ECSecKey = UnsafeMutableRawPointer
+    typealias ECKeyPair = (pubKey:String,priKey:String)
+
+    
     let pubKeyBufferLength = 33;
     let secKeyBufferLength = 32;
     private let XBufferLength = 32
@@ -199,8 +204,8 @@ class EC{
     func serializePubKey(_ pub:ECPubKey) -> String{
         var bf = [UInt8](repeating: 0, count: pubKeyBufferLength);
         serializePubKey(pub , toBytes: &bf);
-        let data = Data(bytesNoCopy: &bf , count: pubKeyBufferLength, deallocator: Data.Deallocator.none);
-        return data.base64EncodedString();
+        return bf.base64String()
+        
     }
     
     /// big-Endian
@@ -214,14 +219,14 @@ class EC{
                 Xbuff.reverse()
                 
                 if !isSecKeyByteValid(byte32: Xbuff) {
-                    throw EC_Err.SeckeyDataError
+                    throw ECErr.SeckeyDataError
                 }
                 
                 memcpy(keyOut, Xbuff, secKeyBufferLength);
                 Xbuff.resetBytes(in: 0..<Xbuff.count);
                 
             }else{
-                throw EC_Err.SeckeyDataError
+                throw ECErr.SeckeyDataError
             }
         }
     }
@@ -240,7 +245,7 @@ class EC{
                 
                 getPoint(x: x,odd: first == 3,R:&P);
                 if P == ZeroPoint{
-                    throw EC_Err.PubkeyDataError
+                    throw ECErr.PubkeyDataError
                 }
                 
                 var tmpR = Point()
@@ -253,7 +258,7 @@ class EC{
                 _pointTimes(P: P, s: Order,R:&tmpR);
                 guard tmpR == ZeroPoint else{
                     /// Point is not in Group of G
-                    throw EC_Err.PubkeyDataError
+                    throw ECErr.PubkeyDataError
                 }
                 
                 Xbuff.resetBytes(in: 0..<Xbuff.count);
@@ -264,7 +269,7 @@ class EC{
                 return;
             }
             
-            throw EC_Err.PubkeyFormatError
+            throw ECErr.PubkeyFormatError
         }else if(count == 65){
             let bf = buffer.bindMemory(to: UInt8.self, capacity: count);
             let first = bf[0];
@@ -289,11 +294,11 @@ class EC{
                     R === P
                     return;
                 }
-                throw EC_Err.PubkeyDataError
+                throw ECErr.PubkeyDataError
             }
-            throw EC_Err.PubkeyFormatError
+            throw ECErr.PubkeyFormatError
         }else{
-            throw EC_Err.PubkeyLengthError
+            throw ECErr.PubkeyLengthError
         }
     }
     func readPubKey(_ base64str:String,R:inout Point) throws{
@@ -654,7 +659,7 @@ class EC{
     }
     
     /// sha512(DH.X)
-    func ecdh(secKeyA: ECSecKey,pubKeyB:ECPubKey,outBf64:UnsafeMutableRawPointer){
+    func ecdhSha512(secKeyA: ECSecKey,pubKeyB:ECPubKey,outBf64:UnsafeMutableRawPointer){
         
         var s = NU512(bytes: secKeyA, count: secKeyBufferLength);
         var dh = ECPubKey()
@@ -674,7 +679,7 @@ class EC{
     func generateKeyPair() -> ECKeyPair{
         var keyBuffer = [UInt8].init(repeating: 0, count: secKeyBufferLength);
         
-        generateSecBytes(outBf32: &keyBuffer)
+        generateSecBytes(   &keyBuffer)
         
         
         var secKey = NU512(bytes: &keyBuffer , count: secKeyBufferLength);
@@ -688,30 +693,19 @@ class EC{
         }
         
         keyBuffer.reverse();
-        let data = Data(bytesNoCopy: &keyBuffer, count: keyBuffer.count, deallocator: Data.Deallocator.none)
         
-        let strKey = data.base64EncodedString();
-        keyBuffer.resetBytes(in: 0..<keyBuffer.count);
+        let strKey = keyBuffer.base64String()
+        keyBuffer.resetAllBytes()
         
         let pubkeyStr = serializePubKey(pubKey);
         return (pubKey:pubkeyStr,priKey:strKey)
     }
     
-    func generateSecBytes(outBf32:UnsafeMutableRawPointer){
-        
-        var tmp:[UInt8] = [UInt8](repeating: 0 , count: 64);
-        var tmpdata:[UInt8] = [UInt8](repeating: 0 , count: 128);
-        
-        repeat{
-            arc4random_buf(&tmp , 64);
-            arc4random_buf(&tmpdata , 128);
-            CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),tmp ,64,tmpdata,128,outBf32);
-        }while !isSecKeyByteValid(byte32: outBf32)
-    }
+   
     func createPubKey(secBytes32:ECSecKey ,pubKey:inout ECPubKey) throws {
         
         if !isSecKeyByteValid(byte32: secBytes32){
-            throw EC_Err.SeckeyDataNotValid
+            throw ECErr.SeckeyDataNotValid
         }
         var s = NU512(bytes: secBytes32, count: secKeyBufferLength);
         
@@ -1290,5 +1284,90 @@ extension NU512{
 
 
 
+let pubKeyBufferLength = 33;
+let secKeyBufferLength = 32;
+private let XBufferLength = 32
 
-
+extension EC:ECFun{
+   
+    
+   
+    
+    var curveType:CurveType{
+        get{
+            return .Secp256k1
+        }
+    }
+    var name: String {
+        get {
+            return "Secp256k1"
+        }
+    }
+    var secLen: Int {
+        get {
+            return secKeyBufferLength
+        }
+    }
+    
+    var pubLen :Int{
+        get {
+            return pubKeyBufferLength
+        }
+    }
+    
+    
+    func genKeyPair(seckey:  ECSecKeyPointer,pubkey:  ECPubKeyPointer?){
+        self.generateSecBytes(  seckey)
+        if(pubkey != nil){
+            var pub = ECPubKey()
+            try! createPubKey(secBytes32: seckey, pubKey: &pub);
+            serializePubKey(pub, toBytes: pubkey!)
+        }
+        
+    }
+    func genPubKey(seckey:  ECSecKeyPointer,pubkey:  ECPubKeyPointer){
+        var pub = ECPubKey()
+        try! createPubKey(secBytes32: seckey, pubKey: &pub);
+        serializePubKey(pub, toBytes: pubkey)
+    }
+    func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer ,sharePoint:ECPubKeyPointer? = nil) throws{
+        var pubObj = ECPubKey()
+        try readPubKey(pubKeyB, count: pubLen, R: &pubObj)
+        ecdhSha512(secKeyA: secKeyA, pubKeyB: pubObj, outBf64: outBf64)
+        pubObj.clear()
+    }
+    
+    func readPubKey(_ base64str:String,pubkey: ECPubKeyPointer) throws{
+        var p = ECPubKey()
+        try readPubKey(base64str, R: &p)
+        serializePubKey(p , toBytes: pubkey)
+    }
+    
+    func readSecKey(_ base64str:String,seckey: ECSecKeyPointer) throws{
+        try readSecKey(base64str, keyOut: seckey)
+    }
+    
+    func seckeyToString(_ seckey:ECSecKeyPointer) throws -> String {
+        return serializeSecKeyBytes(seckey)
+        
+    }
+    
+    func pubkeyToString(_ pubkey:ECSecKeyPointer) throws -> String {
+                
+        let d = Data(bytes: pubkey, count: pubLen)
+        return  LTBase64.base64Encode(d)
+    }
+    
+    func generateSecBytes(_ outBf32:ECSecKeyPointer){
+        
+        var tmp:[UInt8] = [UInt8](repeating: 0 , count: 64);
+        var tmpdata:[UInt8] = [UInt8](repeating: 0 , count: 128);
+        
+        repeat{
+            arc4random_buf(&tmp , 64);
+            arc4random_buf(&tmpdata , 128);
+            CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),tmp ,64,tmpdata,128,outBf32);
+        }while !isSecKeyByteValid(byte32: outBf32)
+    }
+    
+}

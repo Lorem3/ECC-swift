@@ -7,6 +7,8 @@
 
 import Foundation
 import zlib
+import Metal
+import CloudKit
 enum GzErrorCode :Int {
     case decompressFail = 0
     case compressFail = 1
@@ -206,7 +208,7 @@ extension Array where Element == UInt8{
         var c = 0;
         for e in self {
             if(c % 32 == 0 && c != 0){
-                arr.append("\n");
+//                arr.append("\n");
             }
             arr.append(hexAlphabet[Int(e / 0x10)]);
             arr.append(hexAlphabet[Int(e % 0x10)]);
@@ -215,5 +217,23 @@ extension Array where Element == UInt8{
             c += 1
         }
         return arr.joined(separator: "");
+    }
+}
+
+
+extension Array where Element == UInt8 {
+    mutating func resetAllBytes() {
+        self.resetBytes(in: 0..<self.count)
+    }
+    
+    func base64String() -> String{
+        if self.count == 0 {
+            return ""
+        }
+        return self.withUnsafeBytes { bf  in
+            let p =  UnsafeMutableRawBufferPointer(mutating:bf)
+            let data = Data(bytesNoCopy: p.baseAddress!, count: bf.count, deallocator: Data.Deallocator.none)
+            return data.base64EncodedString()
+        }
     }
 }
