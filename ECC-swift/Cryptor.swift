@@ -25,6 +25,18 @@ class Cryptor{
         switch type {
         case .aes256:
             CCCryptorCreate(CCOperation(encrypt ?kCCEncrypt :kCCDecrypt), CCAlgorithm(kCCAlgorithmAES), CCOptions(kCCOptionPKCS7Padding), key, kCCKeySizeAES256, iv, &cc);
+            
+            
+//            {
+//                var key1 = [UInt8](repeating: 0, count: keyLen);
+//                var nonce = [UInt8](repeating: 0, count: ivLen);
+//                memcpy(&key1, key, keyLen);
+//                memcpy(&nonce, iv, ivLen);
+//                Lprint("aes")
+//                Lprint("key",key1.toHexString())
+//                Lprint("nonce",nonce.toHexString())
+//            }()
+          
         case .salsa20:
             var key1 = [UInt8](repeating: 0, count: keyLen);
             var nonce = [UInt8](repeating: 0, count: ivLen);
@@ -32,8 +44,16 @@ class Cryptor{
             memcpy(&nonce, iv, ivLen);
             
             sa = try! Salsa20(key:key1,nonce:nonce)
+//
+//            Lprint("salsa")
+//            Lprint("key",key1.toHexString())
+//            Lprint("nonce",nonce.toHexString())
+            
+            
             memset(&key1 , 0, keyLen);
             memset(&nonce , 0, ivLen);
+            
+         
         }
         
         
