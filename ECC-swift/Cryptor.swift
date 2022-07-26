@@ -217,6 +217,7 @@ class HMAC{
     let outLen : Int;
     
  
+    var cc = 0
     
     static func     hmac(type:HMACType,key:UnsafePointer<UInt8>,keyLen:Int,msg:UnsafePointer<UInt8> ,msgLen:Int, mac:UnsafeMutablePointer<UInt8>,  macLen:Int){
         let h = HMAC(type: type, key: key , keyLength: keyLen, macLength: macLen)
@@ -226,7 +227,7 @@ class HMAC{
     }
 
     
-    init(type:HMACType,key:UnsafePointer<UInt8>,keyLength:Int,macLength:Int){
+    init(type:HMACType,key:UnsafePointer<UInt8>,keyLength:Int,macLength:Int){        
         hType = type
         outLen = macLength;
         if type == HMACType.sha256{
@@ -245,6 +246,7 @@ class HMAC{
     }
     
     func update(data:UnsafePointer<UInt8> , size:Int){
+        
         if(hType == .sha256){
             CCHmacUpdate(&ccHmacCtx,data,size)
         }else if(hType == .blake2b){

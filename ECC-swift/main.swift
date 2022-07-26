@@ -68,16 +68,18 @@ func printKey(key:Data,title:String){
     
 }
 
-let Version = "2.0.0"
+let Version = "2.2.0"
 
 let helpMsg = """
 ecc \(Version)
 g [-prikey/secKey/s prikey]  generate keypair  [-S]  saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] -r[recursion for directory]
-   -a a:aes256 s:salsa20 default
+   -a a:aes256 s:salsa20 default -size n[M]
 d  -prikey/s prikey -m base64ciphermsg  binary data from stdin [-f inputfilepath] [-o outpath] -r[recursion for directory]
 r  -m msg print random art of msg
 s  show saved key in keychain
+
+-size splite file with size MB
 
 
 -c[urve] [s]ecp256k1 or [c]urve25519 [default]
@@ -181,6 +183,15 @@ func main(){
         }
         
         
+        let sizeStr = dicArg["size"] as! String?
+        var szMbFile  = sizeStr != nil ? Int(sizeStr!) : -1
+        
+        if szMbFile == nil  {
+            szMbFile = -1
+        }
+        
+        
+        
         let EC_PUBKEY = LEccKeyChain.shared.environmentPubKey(curveType: ectool.ec.curveType)
         
         let EC_SECKEY = LEccKeyChain.shared.environmentSecKey(curveType: ectool.ec.curveType)
@@ -231,12 +242,22 @@ func main(){
             }
             
             let files = dicArg["f"];
+            
             if files != nil {
+                
                 let ss = dicArg["r"] as!  String?
                 let recursion = ss  == "1"
                 
                 let gz = dicArg["z"] as! String?
-                let isGz = !(gz == "0");
+                
+                let zipType :ECCZipTyp
+                if gz == "1" {
+                    zipType = .gzip
+                }else if gz == "0" {
+                    zipType = .nogzip
+                }else{
+                    zipType = ECCZipTyp.auto
+                }
                 
                 let t:CryptAlgorithm
                 let atype = dicArg["a"] as! String?
@@ -247,9 +268,11 @@ func main(){
                 }
                 
                 if files is Array<Any>{
+                    
+                   
                     for file in files as! [String] {
                         do {
-                            try ectool.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,gzip: isGz, alg:t,recursion:recursion);
+                            try ectool.ecEncryptFile(filePath: file , outFilePath: nil , pubkeyString: strPubKey! ,zipType: zipType, alg:t,recursion:recursion,fileLengthMB: szMbFile!);
                         }
                         catch let e {
                             redPrint(e)
@@ -258,7 +281,7 @@ func main(){
                     }
                     
                 }else if files is String{
-                    try ectool.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,gzip: isGz,alg:t,recursion:recursion);
+                    try ectool.ecEncryptFile(filePath: files as! String, outFilePath: nil , pubkeyString: strPubKey!,zipType: zipType,alg:t,recursion:recursion,fileLengthMB: szMbFile!);
                 }
                 
                 
@@ -312,8 +335,27 @@ func main(){
             let recursion = ss  == "1"
             if files != nil {
                 if files is Array<Any>{
-                    for file in files as! [String] {
+                    
+                    var map = Dictionary<String,Any>()
+                    
+                    for file0 in files as! [String] {
                         do{
+
+                            let file :String
+                            if LTEccTool.Curve25519.checkIsPartial(file0){
+                                file = LTEccTool.Curve25519.setPartIndx(file0, idx: 1)
+                                if map[file] != nil {
+                                    print("skip",file0)
+                                    continue
+                                }
+                                map[file] = "1"
+                            }
+                            else{
+                                file = file0
+                            }
+                            
+                            
+                            
                             try LTEccTool.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
                         }
                         catch let e {

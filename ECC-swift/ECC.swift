@@ -9,7 +9,12 @@ import Foundation
 import CommonCrypto
 import zlib
 import CryptoKit
-
+enum ECCZipTyp {
+    case gzip;
+    case nogzip;
+    case auto;
+    
+}
 
 private let SECP256K1_FLAGS_TYPE_CONTEXT :UInt32 =  (1 << 0);
 private let SECP256K1_FLAGS_BIT_CONTEXT_SIGN : UInt32 = 1 << 9;
@@ -30,6 +35,7 @@ enum LECCError :Error{
     case EncryptPubKeyUnvalid
     case EncryptECDHFail
     case DecryptMacNotFit
+    case FileLost
     case IsNotEnryptByEcc
     case searilizeError
     case inputIsDirectory
@@ -71,6 +77,8 @@ class LTEccTool {
     
     let ec:ECFun;
     let curveType:CurveType
+    
+    let chunkSize = kCCBlockSizeAES128 << 15;// kCCBlockSizeAES128 << 10;
     init(_ curve:CurveType) {
         
         if curve == .Secp256k1{
@@ -450,7 +458,7 @@ class LTEccTool {
         outPathBytes.withUnsafeBufferPointer { bf  in
             zipFile = gzopen(bf.baseAddress!, "w")
         }
-        Lprint(outFile);
+
         defer{
             gzclose(zipFile);
             streamIn.close();
@@ -486,17 +494,52 @@ class LTEccTool {
     func dealOutPath(outpath:String) -> String{
         return LTEccTool.dealOutPath(outpath: outpath)
     }
-    static func dealOutPath(outpath:String) -> String{
+    
+    
+    func checkIsPartial(_ path:String) -> Bool{
+        return path.contains(".ecpart_")
+    }
+    // a.ec a.ecpart_1.ec  ->  a.ecpart_1.ec a.ecpart_2.3c
+    func setPartIndx(_ path:String,idx:Int) -> String{
+        
+        let _ptname = "ecpart_\(String(idx, radix: 10, uppercase: false))"
+        let ptname = _ptname[_ptname.startIndex..<_ptname.endIndex]
+        
+        var arr = path.split(separator: "/",omittingEmptySubsequences:false)
+        let name = arr.last;
+        var arrName = name!.split(separator: ".")
+        
+        assert(arrName.count >= 2, "path error:\(path)")
+        let nameComponet = arrName[arrName.count - 2]
+        if nameComponet.hasPrefix("ecpart_"){
+            arrName[arrName.count - 2] = ptname
+        }else{
+            arrName.insert(ptname, at: arrName.count - 1)
+        }
+        
+        
+        let newName = arrName.joined(separator: ".");
+        arr[arr.count - 1] = newName[newName.startIndex..<newName.endIndex]
+        
+        
+        return arr.joined(separator: "/")
+         
+    }
+    static func dealOutPath(outpath:String ,isDec:Bool = false) -> String{
         // check if outpat is exsit, if exsist ,change name by adding _i
         let pathComponets = outpath.split(separator: "/")
         var nameComponet = pathComponets.last!.components(separatedBy: ".")
+        if isDec && outpath.contains(".ecpart_") {
+            nameComponet = nameComponet.dropLast()
+        }
         let name =  nameComponet.first;
         var fileAutoIndex = 1;
-        var result :String = outpath;
+        var result :String = "/" + pathComponets.dropLast().joined(separator: "/") + "/" + nameComponet.joined(separator: ".")
         while FileManager.default.fileExists(atPath: result){
             nameComponet[0] = name! + "_\(fileAutoIndex)";
             fileAutoIndex += 1;
-            let path = pathComponets.dropLast().joined(separator: "/");
+            let path : String
+            path = pathComponets.dropLast().joined(separator: "/");
             let name2 = nameComponet.joined(separator: ".");
             result = "/" + path + "/" + name2;
         }
@@ -504,13 +547,31 @@ class LTEccTool {
         
     }
     
+
+    static func filterDirFilesWhenDecrypt(_ fileName:String) -> Bool{
+        if fileName.hasSuffix(".ec"){
+            if fileName.contains(".ecpart_") && !fileName.contains(
+                ".ecpart_1.") {
+                return false
+            }
+            return true
+        }
+        return false
+    }
    
     static func ecDecryptFile(filePath:String,outFilePath:String?,prikeyString:String ,recursion:Bool = false) throws{
-        let inFilePath = dealPath(filePath);
+        var inFilePath = dealPath(filePath);
+        let isPartialFile = Curve25519.checkIsPartial(inFilePath)
+        var partralCount = 0
+        if isPartialFile {
+            inFilePath = LTEccTool.Curve25519.setPartIndx(inFilePath, idx: 1)
+        }
+        
         var outpath:String
         if outFilePath == nil {
             if inFilePath.count > 3 && inFilePath.hasSuffix(".ec") {
                 outpath = String(inFilePath[inFilePath.startIndex..<inFilePath.index(inFilePath.endIndex, offsetBy: -3)]);
+                
             }else{
                 outpath = inFilePath + ".dec";
             }
@@ -530,7 +591,8 @@ class LTEccTool {
                 for path  in arr  {
                     do {
                         let sPath = inFilePath + "/\(path)";
-                        if sPath.hasSuffix(".ec"){
+                        if filterDirFilesWhenDecrypt(sPath){
+                            Lprint(sPath)
                             try ecDecryptFile(filePath: sPath, outFilePath: nil , prikeyString: prikeyString, recursion: recursion);
                         }else{
                             FileManager.default.fileExists(atPath: sPath, isDirectory: &isDir)
@@ -558,13 +620,14 @@ class LTEccTool {
             }
         }
         
-        outpath = dealOutPath(outpath: outpath);
+        
+        outpath = dealOutPath(outpath: outpath,isDec: true);
 //
         
         var streamIn = InputStream(fileAtPath: inFilePath)!
         streamIn.open()
         
-        let kBfSize = kCCBlockSizeAES128 << 10;
+        let kBfSize = Curve25519.chunkSize
         var readLen  = 0;
         let buffer = malloc(kBfSize).bindMemory(to: UInt8.self, capacity: kBfSize);
         defer{
@@ -619,7 +682,7 @@ class LTEccTool {
             outpath = tmpFile!;
         }
         
-        var dhHash = [UInt8](repeating: 64, count: 0)
+        var dhHash = [UInt8](repeating: 0, count: 64)
         
         var privateKey = [UInt8](repeating: 0, count: ectool.ec.secLen);
         var pubKey = [UInt8](repeating: 0, count: ectool.ec.pubLen);
@@ -653,57 +716,113 @@ class LTEccTool {
         })
         
         
-        let BufferSize =  kCCBlockSizeAES128 << 10
-        readLen = streamIn.read(buffer, maxLength: BufferSize);
+        let BufferSize = Curve25519.chunkSize// kCCBlockSizeAES128 << 10
+        
+        
+        if isPartialFile{
+            var fileCountBf = [UInt8](repeating: 0, count: 4);
+            dataIv?.withUnsafeBytes({ bf0  in
+                dataMac?.withUnsafeBytes({ bf1 in
+                    for i in 0..<4{
+                        fileCountBf[i] = bf0.load(fromByteOffset: i, as: UInt8.self) ^ bf1.load(fromByteOffset: i, as: UInt8.self)
+                    }
+                })
+            })
+            
+            
+            
+            
+            let tmp  = fileCountBf.withUnsafeBytes({ bf  in
+                return bf.load(as: UInt32.self)
+            })
+            partralCount = Int(CFSwapInt32LittleToHost(tmp))
+            
+        }
+        
+        
         
         let dataOutAvailable = BufferSize + kCCBlockSizeAES128
         var dataOut = [UInt8](repeating: 0, count: dataOutAvailable);
         var dataOutLen = 0;
         
         
-        let fileSize :Int? = try FileManager.default.attributesOfItem(atPath: inFilePath)[FileAttributeKey.size] as? Int;
-        
-        let  minDlt =  Int(Double(fileSize!) * 0.01);
-        var checked = 0;
-        var currentDlt = 0
-        
-        
+  
         print(inFilePath);
-        ectool._printProgress("check", 0);
-        while readLen > 0 {
-            hmac.update(data: buffer, size: readLen)
-            readLen = streamIn.read(buffer, maxLength: BufferSize)
-            currentDlt += readLen;
-            checked += readLen;
-            
-            if currentDlt >= minDlt {
-                currentDlt = 0
-                ectool._printProgress("check",  Float(Double(checked)/Double(fileSize!)));
+        print("check...")
+        
+        var filePart = 1;
+        
+        repeat {
+            readLen = streamIn.read(buffer, maxLength: BufferSize);
+            if readLen > 0 {
+                hmac.update(data: buffer, size: readLen)
             }
+            
+            if isPartialFile && readLen <= 0 && filePart < partralCount{
+                streamIn.close()
+                filePart += 1
+                inFilePath = Curve25519.setPartIndx(inFilePath, idx: filePart)
+                let s = InputStream(fileAtPath: inFilePath);
+                if s == nil {
+                    throw LECCError.FileLost
+                }
+                streamIn = s!
+                streamIn.open();
+                
+                readLen = 1
+                continue
+            }
+            
+        }while readLen > 0
+        
+        print("check done.");
+        if isPartialFile && filePart != partralCount{
+            throw LECCError.FileLost
         }
         
-        ectool._printProgress("check", 1.0);
-        print("");
         
         var macOut = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
         hmac.finish(mac:&macOut )
         
-        let macCal = Data(bytes: macOut, count: macOut.count);
-        if (macCal != dataMac){
+        if macOut.count !=  dataMac!.count {
             throw LECCError.DecryptMacNotFit
         }
+         
+        try dataMac?.withUnsafeBytes({ bf  in
+            if isPartialFile{
+                
+                try macOut.withUnsafeBytes { bfmac  in
+                    let z = memcmp(bf.baseAddress!.advanced(by: 4),
+                                   bfmac.baseAddress!.advanced(by: 4), macOut.count - 4)
+                    if 0 != z {
+                        throw LECCError.DecryptMacNotFit
+                    }
+                }
+                
+            }else{
+                if 0 != memcmp(bf.baseAddress, &macOut, macOut.count){
+                    throw LECCError.DecryptMacNotFit
+                }
+            }
+        })
+        
         
         streamIn.close();
+        
+        
+        if isPartialFile{
+            inFilePath = Curve25519.setPartIndx(inFilePath, idx: 1)
+        }
+            
         
         /// decrypt
         streamIn = InputStream(fileAtPath: inFilePath)!;
         streamIn.open();
         streamOut = OutputStream(toFileAtPath: outpath, append: false)!;
         streamOut .open();
-        let encryptDataSize = fileSize! - dataStartIndex
-        let minShowProgressSize = Int(Double(encryptDataSize) * 0.01);
         
-        
+        print("decrypt...")
+  
         streamIn.setProperty(dataStartIndex, forKey: Stream.PropertyKey.fileCurrentOffsetKey)
         
         let alg = ectool.getCryptAlgrith(type);
@@ -715,34 +834,42 @@ class LTEccTool {
         
         let cryptor = cryptor_!
         
-        readLen = streamIn.read(buffer, maxLength: BufferSize);
+        
         var currentDecrypt = 0
         var currentDelt = 0
-        while readLen > 0{
-            
+        
+        var fileIdx = 1;
+        
+       repeat{
+            readLen = streamIn.read(buffer, maxLength: BufferSize);
             cryptor.update(bfIn: buffer, bfInSize: readLen, bfOut: &dataOut, bfOutMax: dataOutAvailable, outSize: &dataOutLen)
             
             if dataOutLen > 0 {
                 streamOut.write(&dataOut, maxLength: dataOutLen);
                 currentDecrypt += dataOutLen;
                 currentDelt += dataOutLen;
-                if (currentDelt >= minShowProgressSize) {
-                    currentDelt = 0;
-                    ectool._printProgress("decrypt", Float(currentDecrypt)/Float(encryptDataSize))
-                    
-                }
+                
             }
-            readLen = streamIn.read(buffer, maxLength: BufferSize);
             
-        }
+            if readLen <= 0 && isPartialFile && fileIdx < partralCount {
+                streamIn.close()
+                fileIdx += 1
+                inFilePath = Curve25519.setPartIndx(inFilePath, idx: fileIdx)
+                streamIn = InputStream(fileAtPath: inFilePath)!
+                streamIn.open()
+                
+                readLen = 1
+            }
+            
+        }while readLen > 0
         cryptor.final(bfOut: &dataOut, bfOutMax: dataOutAvailable, outSize: &dataOutLen)
         
         if dataOutLen > 0 {
             streamOut.write(&dataOut, maxLength: dataOutLen);
             
         }
-        ectool._printProgress("decrypt",1.0)
-        print("")
+        print("decrypt done")
+        
         
         if tmpFile != nil && ectool.isZiped(type) {
             print("unzipping, please wait...");
@@ -797,8 +924,20 @@ class LTEccTool {
         return FileManager.default.fileExists(atPath: flagFile)
     }
     
-    func ecEncryptFile(filePath:String,outFilePath:String?,pubkeyString:String,gzip:(Bool) = true ,alg:CryptAlgorithm,recursion :Bool = false) throws{
+    func ecEncryptFile(filePath:String,outFilePath:String?,pubkeyString:String,zipType:ECCZipTyp ,alg:CryptAlgorithm,recursion :Bool = false,fileLengthMB:Int = -1) throws{
         var inFilePath = dealPath(filePath);
+
+        let gzip : Bool
+        switch zipType {
+        case .gzip:
+            gzip = true
+        case .nogzip:
+            gzip = false
+        case .auto:
+            gzip = fileLengthMB > 0 ? false : true
+        }
+        
+        
         
         var isDir = false as ObjCBool;
         if(FileManager.default.fileExists(atPath: inFilePath, isDirectory: &isDir)){
@@ -817,7 +956,7 @@ class LTEccTool {
                         if  isDir.boolValue{
                             if recursion {
                                 print("subDir \(path)")
-                                try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , gzip:gzip,alg:alg,recursion:recursion);
+                                try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , zipType:zipType ,alg:alg,recursion:recursion,fileLengthMB:fileLengthMB);
                             }else{
                                 print("subDir skip ...",path)
                             }
@@ -828,7 +967,7 @@ class LTEccTool {
                                 || sPath.hasSuffix(LTEccTool.dirFlag){
                                 print("skip",sPath)
                             }else{
-                                try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , gzip:gzip,alg:alg,recursion:false);
+                                try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , zipType:zipType,alg:alg,recursion:false,fileLengthMB:fileLengthMB);
                             }
                             
                         }
@@ -851,13 +990,10 @@ class LTEccTool {
             let directory = components.dropLast(1).map(String.init).joined(separator: "/")
             strziptmp = "/" + directory + String(format: "/%x.ectmp",arc4random()  );
             
-            print("");
+            print("zipping...");
 
-            gzipFile(infilePath: inFilePath, outfilePath: strziptmp!) { p in
-                self._printProgress("zipping", p);
-            };
-            self._printProgress("zipping", 1);
-            print("");
+            gzipFile(infilePath: inFilePath, outfilePath: strziptmp!)
+            print("zipping done");
             inFilePath = strziptmp!;
         }
         
@@ -870,6 +1006,17 @@ class LTEccTool {
         }
         outPath = dealOutPath(outpath: outPath);
         
+        
+        var partIdx = 1
+        let isPatrial : Bool;
+        if fileLengthMB > 0  {
+            outPath = setPartIndx(outPath, idx: partIdx);
+            isPatrial = true
+        }else{
+            isPatrial = false
+        }
+        
+        
         let _streamIn  = InputStream(fileAtPath: inFilePath);
         let _streamOut  = OutputStream(toFileAtPath:outPath , append: false);
         
@@ -878,28 +1025,30 @@ class LTEccTool {
         }
         
         let streamIn = _streamIn!
-        let streamOut = _streamOut!
+        var streamOut = _streamOut!
         streamIn.open();
         streamOut.open();
         
+        var fileLen = fileLengthMB > 0 ? (Int64(fileLengthMB) << 20) : Int64(0)
+        let isPartialFile = fileLen > 0
         
         /// generate
         var dhHash = [UInt8](repeating: 0, count: 64);
         defer{
-            dhHash.resetBytes(in: 0..<dhHash.count)
+            dhHash.resetAllBytes()
         }
         
         
         var pubKeyEnc = [UInt8](repeating: 0, count: ec.pubLen);
         var randKey = [UInt8](repeating: 0, count: ec.secLen);
         var randPub = [UInt8](repeating: 0, count: ec.pubLen);
-        try ec.genKeyPair(seckey: &randKey, pubkey: &randPub);
+        try! ec.genKeyPair(seckey: &randKey, pubkey: &randPub);
         defer{
             randPub.resetAllBytes()
             randKey.resetAllBytes()
             pubKeyEnc.resetAllBytes()
         }
-        
+          
         try ec.readPubKey(pubkeyString, pubkey: &pubKeyEnc)
         try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &dhHash,sharePoint: nil);
         
@@ -972,58 +1121,108 @@ class LTEccTool {
         
         var readDateLen = 0;
         
-        let buffersize = kCCBlockSizeAES128 << 10;
+        let buffersize = chunkSize ;//kCCBlockSizeAES128 << 10;
         let encbuffersize = buffersize + kCCBlockSizeAES128;
         
         
-        let buffer = malloc(buffersize).bindMemory(to: UInt8.self, capacity: buffersize)
-        let bufferEncry = malloc(encbuffersize).bindMemory(to: UInt8.self, capacity: encbuffersize);
+        let buffer = UnsafeMutableRawPointer.allocate(byteCount: buffersize, alignment: 16);
+      
+        let bufferEncry = UnsafeMutableRawPointer.allocate(byteCount: encbuffersize, alignment: 16);
+        
+        let pBufferEncry = bufferEncry.bindMemory(to: UInt8.self, capacity: encbuffersize)
+        let pBuffer = buffer.bindMemory(to: UInt8.self, capacity: buffersize)
+        
         defer {
-            memset(buffer, 0, buffersize);
-            free(buffer);
-            free(bufferEncry);
+            sodium_memzero(pBuffer, buffersize)
+            bufferEncry.deallocate()
+            buffer.deallocate()
         }
         
-        readDateLen = streamIn .read(buffer, maxLength: buffersize);
+        print("encrypt...");
         var encsize = 0;
+        var filePartSize = Int64(8 + Int(ivLen) + Int(macLen) + Int(ephemPubLen))
+        
   
-        
-        let zipfilesize = try? (FileManager.default.attributesOfItem(atPath: inFilePath)[FileAttributeKey.size] as! Int);
-        let minDeltSize = Int(Double(zipfilesize!) * 0.01)
-        
-        print("");
-        var encryptedSize = 0;
-        var encryptedDelt = 0;
-        while readDateLen > 0{
-            cryptor.update(bfIn: buffer, bfInSize: readDateLen, bfOut: bufferEncry, bfOutMax: encbuffersize, outSize: &encsize);
-            
-            
-            // calculate hmac
-            if encsize > 0 {
-                hmac.update(data: bufferEncry, size: encsize)
-                streamOut .write(bufferEncry, maxLength: encsize);
-                encryptedDelt += encsize;
-                encryptedSize += encsize;
+        repeat{
+            readDateLen = streamIn.read(pBuffer ,maxLength:buffersize);
+            if readDateLen > 0 {
+                cryptor.update(bfIn: buffer, bfInSize: readDateLen, bfOut: bufferEncry, bfOutMax: encbuffersize, outSize: &encsize);
                 
-                if encryptedDelt > minDeltSize{
-                    encryptedDelt = 0;
-                    _printProgress("encrypt", Float(Double(encryptedSize)/Double(zipfilesize!) as Double))
+                // calculate hmac
+                if encsize > 0 {
+                    hmac.update(data: pBufferEncry, size: encsize)
+                     
+                    if isPatrial && filePartSize + Int64(encsize) > fileLen {
+                        
+                        let left = fileLen - filePartSize
+                        if left > 0 {
+                            streamOut.write(pBufferEncry, maxLength: Int(left));
+                            streamOut.close()
+                            partIdx += 1
+                            outPath = setPartIndx(outPath, idx: partIdx);
+                            streamOut = OutputStream(toFileAtPath:outPath , append: false)!;
+                            streamOut.open()
+                            
+                            filePartSize = filePartSize + Int64(encsize) - fileLen;
+                            streamOut.write(pBufferEncry.advanced(by: Int(left)), maxLength: Int(filePartSize));
+                            
+                            
+                            
+                            
+                            
+                            continue
+                        }
+                        else{
+                            streamOut.close()
+                            partIdx += 1
+                            outPath = setPartIndx(outPath, idx: partIdx);
+                            streamOut = OutputStream(toFileAtPath:outPath , append: false)!;
+                            streamOut.open()
+                            filePartSize = 0;
+                        }
+                        
+                    }
+     
+                    streamOut.write(pBufferEncry, maxLength: encsize);
+                    
+                    filePartSize += Int64(encsize)
+                    
+                    
                 }
             }
-            
-            readDateLen = streamIn.read(buffer ,maxLength:buffersize);
-        }
-        cryptor.final(bfOut: bufferEncry, bfOutMax: encbuffersize, outSize: &encsize);
+             
+        }while readDateLen > 0
         
-        hmac.update(data: bufferEncry, size: encsize)
+        cryptor.final(bfOut: pBufferEncry, bfOutMax: encbuffersize, outSize: &encsize);
+        
+        hmac.update(data: pBufferEncry, size: encsize)
         hmac.finish(mac: &macBuffer)
         
-        if encsize > 0 {
-            streamOut.write(bufferEncry, maxLength: encsize);
+        
+        /// macBuffer
+        
+        /***
+         *
+         *  分卷模式，mac 最开始的4字节作为 分卷数量。
+         *
+         **/
+        if isPartialFile{
+            let count = UInt32(partIdx).littleEndian
+            
+            macBuffer[0] = iv[0] ^ UInt8((count & (0xff << 0)) >> 0)
+            macBuffer[1] = iv[1] ^ UInt8((count & (0xff << 8)) >> 8)
+            macBuffer[2] = iv[2] ^ UInt8((count & (0xff << 16)) >> 16)
+            macBuffer[3] = iv[3] ^ UInt8((count & (0xff << 24)) >> 24)
+            
+            
         }
         
-        _printProgress("encrypt",1.0)
-        print("");
+        
+        if encsize > 0 {
+            streamOut.write(pBufferEncry, maxLength: encsize);
+        }
+        
+        print("encrypt done.");
         
         streamIn.close();
         streamOut.close();
@@ -1032,9 +1231,18 @@ class LTEccTool {
         /// update mac of  Header
         var fileOut : UnsafeMutablePointer<FILE>?
         if outPath.count > 0 {
-            outPath.utf8CString.withUnsafeBufferPointer { bf  in
-                fileOut = fopen(bf.baseAddress, "r+b");
-            };
+            
+            if isPartialFile {
+                let fisrtFile = setPartIndx(outPath, idx: 1)
+                fisrtFile.utf8CString.withUnsafeBufferPointer { bf  in
+                    fileOut = fopen(bf.baseAddress, "r+b");
+                };
+            }else{
+                outPath.utf8CString.withUnsafeBufferPointer { bf  in
+                    fileOut = fopen(bf.baseAddress, "r+b");
+                };
+            }
+           
         }
         fseeko(fileOut!, off_t(macPostion), SEEK_SET);
         fwrite(macBuffer, Int(macLen), 1, fileOut!);
@@ -1065,6 +1273,7 @@ class LTEccTool {
     
     
     private  func _printProgress(_ msg:String,_ percent0:Float ){
+        return
         let percent = percent0 > 1 ? 1 : percent0;
          
         print("\r" + msg + " ", separator: "", terminator: "");

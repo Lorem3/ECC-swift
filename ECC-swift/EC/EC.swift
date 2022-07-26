@@ -223,7 +223,7 @@ class EC{
                 }
                 
                 memcpy(keyOut, Xbuff, secKeyBufferLength);
-                Xbuff.resetBytes(in: 0..<Xbuff.count);
+                Xbuff.resetAllBytes()
                 
             }else{
                 throw ECErr.SeckeyDataError
@@ -261,8 +261,8 @@ class EC{
                     throw ECErr.PubkeyDataError
                 }
                 
-                Xbuff.resetBytes(in: 0..<Xbuff.count);
                 
+                Xbuff.resetAllBytes()
                 
                 
                 R === P;
@@ -545,9 +545,11 @@ class EC{
             privateKey.clear()
             k1.clear()
             k.clear()
-            bfTmpR.resetBytes(in: 0..<bfTmpR.count);
-            bfHash.resetBytes(in: 0..<bfTmpR.count);
-            bfTmp.resetBytes(in: 0..<bfTmpR.count);
+            
+            bfTmpR.resetAllBytes()
+            bfHash.resetAllBytes()
+            bfTmp.resetAllBytes()
+            
             tmpN.clear()
             tmpPubKey.clear()
             Rx.clear()
@@ -673,7 +675,7 @@ class EC{
         // big-endian
         x32.reverse();
         CC_SHA512(x32, CC_LONG(XBufferLength), outBf64.bindMemory(to: UInt8.self, capacity: XBufferLength));
-        x32.resetBytes(in: 0..<x32.count)
+        x32.resetAllBytes()
     }
     
     func generateKeyPair() -> ECKeyPair{
@@ -687,7 +689,7 @@ class EC{
         pointTimes(P: G , s: secKey,R: &pubKey);
         
         defer{
-            keyBuffer.resetBytes(in: 0..<keyBuffer.count)
+            keyBuffer.resetAllBytes()
             secKey.clear()
             pubKey.clear()
         }

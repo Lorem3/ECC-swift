@@ -334,8 +334,7 @@ extension NU512{
         mp_zero(&value)
         mp_clear(&value)
         value.dp = nil
-        
-        
+         
     }
     
     

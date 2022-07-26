@@ -224,6 +224,7 @@ extension Array where Element == UInt8{
 extension Array where Element == UInt8 {
     mutating func resetAllBytes() {
         self.resetBytes(in: 0..<self.count)
+        sodium_memzero(&self, self.count)
     }
     
     func base64String() -> String{

@@ -85,10 +85,11 @@ class EC_X25519:ECFun{
         repeat{
             arc4random_buf(&tmp, msgLen)
             randombytes(&tmp2,UInt64(crypto_generichash_blake2b_KEYBYTES));
-            
+                          
             crypto_generichash(&sk,Int(secLen),tmp,UInt64(msgLen),tmp2,Int(crypto_generichash_blake2b_KEYBYTES))
-            tmp.resetBytes(in: 0..<tmp.count)
-            tmp2.resetBytes(in: 0..<tmp2.count)
+
+            tmp.resetAllBytes()
+            tmp2.resetAllBytes()
             
             if(crypto_scalarmult_base(&pk, &sk) == 0 ){
                 break
@@ -119,8 +120,8 @@ class EC_X25519:ECFun{
         var pkA = [UInt8](repeating: 0, count: Int(pubLen));
         var share =  [UInt8](repeating: 0, count: sharelen + Int(pubLen * 2));
         defer{
-            share.resetBytes(in: 0..<share.count)
-            pkA.resetBytes(in: 0..<pkA.count)
+            share.resetAllBytes()
+            pkA.resetAllBytes()
         }
         if(crypto_scalarmult(&share , skA , pkB) != 0){
             throw ECErr.ECDHError
@@ -147,6 +148,7 @@ class EC_X25519:ECFun{
         
         let dh = outBf64.bindMemory(to: UInt8.self, capacity: 64);
         crypto_generichash(dh,64,&share,UInt64(share.count),nil,0);
+        
         
         
         
