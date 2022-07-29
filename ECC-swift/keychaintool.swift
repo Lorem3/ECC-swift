@@ -19,7 +19,7 @@ class LEccKeyChain {
         
         
        
-        let pub = try! LTEccTool.Curve25519.genKeyPair(mac.base64String()).pubKey
+        let pub = try! EncTool.Curve25519.genKeyPair(mac.base64String()).pubKey
 
         return pub
         
@@ -38,8 +38,8 @@ class LEccKeyChain {
         
         
         
-        let dataSec = try? LTEccTool.ecEncrypt(data: secureKey.data(using: .utf8)!, pubKey: pubKeyForAccount(accSec) ,type:CryptAlgorithm.aes256)
-        let dataPub = try? LTEccTool.ecEncrypt(data: publicKey.data(using: .utf8)!, pubKey: pubKeyForAccount(accPub) ,type:CryptAlgorithm.aes256)
+        let dataSec = try? EncTool.ecEncrypt(data: secureKey.data(using: .utf8)!, pubKey: pubKeyForAccount(accSec) ,type:CryptAlgorithm.aes256)
+        let dataPub = try? EncTool.ecEncrypt(data: publicKey.data(using: .utf8)!, pubKey: pubKeyForAccount(accPub) ,type:CryptAlgorithm.aes256)
         
         if dataSec != nil && dataPub != nil{
           
@@ -88,7 +88,7 @@ class LEccKeyChain {
         
         let data = try? LTBase64.base64Decode(strvalue!);
         if data != nil {
-            let finalkey = try? LTEccTool.ecDecrypt(encData: data!, priKey: secKeyForAccount(accPub));
+            let finalkey = try? EncTool.ecDecrypt(encData: data!, priKey: secKeyForAccount(accPub));
             
             if(finalkey != nil){
                 let r = String(data: finalkey!, encoding: .utf8)
@@ -122,7 +122,7 @@ class LEccKeyChain {
         
         let data = try? LTBase64.base64Decode(strvalue!);
         if data != nil {
-            let finalkey = try? LTEccTool.ecDecrypt(encData: data!, priKey: secKeyForAccount(accSec));
+            let finalkey = try? EncTool.ecDecrypt(encData: data!, priKey: secKeyForAccount(accSec));
             
             if(finalkey != nil){
                 let r = String(data: finalkey!, encoding: .utf8)

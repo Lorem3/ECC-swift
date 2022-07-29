@@ -175,11 +175,11 @@ func main(){
         }
         
         
-        let ectool :LTEccTool
+        let ectool :EncTool
         if curve != nil && curve!.lowercased() == "s"{
-            ectool = LTEccTool.Secp255k1
+            ectool = EncTool.Secp255k1
         }else {
-            ectool = LTEccTool.Curve25519
+            ectool = EncTool.Curve25519
         }
         
         
@@ -342,8 +342,8 @@ func main(){
                         do{
 
                             let file :String
-                            if LTEccTool.Curve25519.checkIsPartial(file0){
-                                file = LTEccTool.Curve25519.setPartIndx(file0, idx: 1)
+                            if EncTool.Curve25519.checkIsPartial(file0){
+                                file = EncTool.Curve25519.setPartIndx(file0, idx: 1)
                                 if map[file] != nil {
                                     print("skip",file0)
                                     continue
@@ -356,7 +356,7 @@ func main(){
                             
                             
                             
-                            try LTEccTool.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
+                            try EncTool.ecDecryptFile(filePath: file, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
                         }
                         catch let e {
                             redPrint(e)
@@ -367,7 +367,7 @@ func main(){
                     
                 }else if files is String{
                     do{
-                        try LTEccTool.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
+                        try EncTool.ecDecryptFile(filePath: files as! String, outFilePath: nil , prikeyString: seckey!,recursion: recursion)
                     }catch let e {
                         Lprint(e)
                         redPrint(e)
@@ -381,13 +381,18 @@ func main(){
             
             
             let strmsg = dicArg["m"] as! String?
-            var dataMsg = strmsg?.data(using: .utf8);
+            
+            var dataMsg : Data?
+            if strmsg != nil {
+                dataMsg = try! LTBase64.base64Decode(strmsg!)
+            }
+            
             if(dataMsg == nil){
                 dataMsg = readDataFromStdIn();
             }
             
             if dataMsg != nil {
-                let d = try LTEccTool.ecDecrypt(encData: dataMsg!, priKey: seckey!);
+                let d = try EncTool.ecDecrypt(encData: dataMsg!, priKey: seckey!);
                 
                 _ = d.withUnsafeBytes({ bf  in
                     fwrite(bf.baseAddress, 1, bf.count, stdout);

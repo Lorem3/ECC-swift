@@ -43,7 +43,7 @@ enum LECCError :Error{
     case encDataError
 }
 
-class LTEccTool {
+class EncTool {
     /**
      * typeMask 1 zip
      * typeMask 0 notZipd
@@ -65,12 +65,12 @@ class LTEccTool {
         return  (curveType == .Secp256k1 ? 0 : 4)  |  ((zip ? 0 : 1) | (alg == CryptAlgorithm.aes256 ? 0 : 2))
     }
     
-    static var Secp255k1 : LTEccTool  = {
-        return LTEccTool(CurveType.Secp256k1)
+    static var Secp255k1 : EncTool  = {
+        return EncTool(CurveType.Secp256k1)
     }()
     
-    static var Curve25519 : LTEccTool  = {
-        return LTEccTool(CurveType.Curve25519)
+    static var Curve25519 : EncTool  = {
+        return EncTool(CurveType.Curve25519)
     }()
     
 //    var ctx:OpaquePointer ;
@@ -330,8 +330,9 @@ class LTEccTool {
         }
         
         
-        _ = encResult.ephemPubkeyData.withUnsafeBytes { bf in
-            memcpy(&ephemPubKey, bf.baseAddress!, bf.count)
+        _ = try encResult.ephemPubkeyData.withUnsafeBytes { bf in
+
+            try ec.convertPubKeyCanonical(pub: bf.baseAddress!, pubSize: bf.count, toPub: &ephemPubKey)
         }
         
         var outHash = [UInt8](repeating: 0, count: 64);
@@ -389,7 +390,7 @@ class LTEccTool {
     }
     
     func dealPath(_ path:String) -> String{
-        return LTEccTool.dealPath(path)
+        return EncTool.dealPath(path)
     }
     static func dealPath(_ path:String) -> String{
         if(path.hasPrefix("/")){
@@ -492,7 +493,7 @@ class LTEccTool {
         }while (readLen > 0);
     }
     func dealOutPath(outpath:String) -> String{
-        return LTEccTool.dealOutPath(outpath: outpath)
+        return EncTool.dealOutPath(outpath: outpath)
     }
     
     
@@ -564,7 +565,7 @@ class LTEccTool {
         let isPartialFile = Curve25519.checkIsPartial(inFilePath)
         var partralCount = 0
         if isPartialFile {
-            inFilePath = LTEccTool.Curve25519.setPartIndx(inFilePath, idx: 1)
+            inFilePath = EncTool.Curve25519.setPartIndx(inFilePath, idx: 1)
         }
         
         var outpath:String
@@ -906,7 +907,7 @@ class LTEccTool {
     static var rnd = SystemRandomNumberGenerator();
     static var dirFlag = ".\(rnd.next())"
     static func setDirFlag(dir:String, working:Bool){
-        let flagFile = dir + "/" + LTEccTool.dirFlag;
+        let flagFile = dir + "/" + EncTool.dirFlag;
         if working{
             FileManager.default.createFile(atPath: flagFile, contents: nil , attributes: nil )
         }else{
@@ -914,13 +915,13 @@ class LTEccTool {
         }
     }
     func setDirFlag(dir:String, working:Bool){
-        LTEccTool.setDirFlag(dir: dir, working: working)
+        EncTool.setDirFlag(dir: dir, working: working)
     }
     func checkDirWorking(dir:String) -> Bool{
-        return LTEccTool.checkDirWorking(dir: dir)
+        return EncTool.checkDirWorking(dir: dir)
     }
     static func checkDirWorking(dir:String) -> Bool{
-        let flagFile = dir + "/" + LTEccTool.dirFlag;
+        let flagFile = dir + "/" + EncTool.dirFlag;
         return FileManager.default.fileExists(atPath: flagFile)
     }
     
@@ -964,7 +965,7 @@ class LTEccTool {
                         else{
                             if sPath.hasSuffix(".ec")
                                 || sPath.hasSuffix(".DS_Store")
-                                || sPath.hasSuffix(LTEccTool.dirFlag){
+                                || sPath.hasSuffix(EncTool.dirFlag){
                                 print("skip",sPath)
                             }else{
                                 try ecEncryptFile(filePath:sPath,outFilePath:nil, pubkeyString:pubkeyString , zipType:zipType,alg:alg,recursion:false,fileLengthMB:fileLengthMB);

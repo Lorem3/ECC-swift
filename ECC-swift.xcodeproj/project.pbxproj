@@ -14,7 +14,7 @@
 		C443211A28164E33008872DA /* libtommath in Frameworks */ = {isa = PBXBuildFile; productRef = C443211928164E33008872DA /* libtommath */; };
 		C48D5B7E2887989900219BC8 /* libsodium.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C48D5B7D2887989900219BC8 /* libsodium.a */; };
 		C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED65B27D5FBA0009C8CBC /* main.swift */; };
-		C49ED66327D5FBEC009C8CBC /* ECC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66227D5FBEC009C8CBC /* ECC.swift */; };
+		C49ED66327D5FBEC009C8CBC /* EncTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66227D5FBEC009C8CBC /* EncTool.swift */; };
 		C49ED66527D5FE23009C8CBC /* Base64.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66427D5FE23009C8CBC /* Base64.swift */; };
 		C4B11FEE2887A5E400DDC5B6 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4B11FED2887A5E400DDC5B6 /* CryptoKit.framework */; };
 		C4B11FF22888095700DDC5B6 /* EC_X25519.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B11FF12888095700DDC5B6 /* EC_X25519.swift */; };
@@ -107,7 +107,7 @@
 		C48D5BBD2887998600219BC8 /* sodium.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sodium.h; sourceTree = "<group>"; };
 		C49ED65827D5FBA0009C8CBC /* ECC2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ECC2; sourceTree = BUILT_PRODUCTS_DIR; };
 		C49ED65B27D5FBA0009C8CBC /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		C49ED66227D5FBEC009C8CBC /* ECC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ECC.swift; sourceTree = "<group>"; };
+		C49ED66227D5FBEC009C8CBC /* EncTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncTool.swift; sourceTree = "<group>"; };
 		C49ED66427D5FE23009C8CBC /* Base64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Base64.swift; sourceTree = "<group>"; };
 		C49ED68327D74935009C8CBC /* ECC-swift.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ECC-swift.h"; sourceTree = "<group>"; };
 		C4B11FED2887A5E400DDC5B6 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
@@ -252,7 +252,7 @@
 				C43B06B627FEA870004E55FC /* test.swift */,
 				C4D9686B27E1AF0300710BDC /* Tools.swift */,
 				C49ED66427D5FE23009C8CBC /* Base64.swift */,
-				C49ED66227D5FBEC009C8CBC /* ECC.swift */,
+				C49ED66227D5FBEC009C8CBC /* EncTool.swift */,
 				C41B6B0127E81C9D0073AD1D /* randomArt.swift */,
 				C4F22D1827EB254B00BEEF1F /* keychaintool.swift */,
 				C43B06B427FDE1B6004E55FC /* Cryptor.swift */,
@@ -424,7 +424,7 @@
 				C4ECE55F280B060900400456 /* number.swift in Sources */,
 				C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */,
 				C43B06B727FEA870004E55FC /* test.swift in Sources */,
-				C49ED66327D5FBEC009C8CBC /* ECC.swift in Sources */,
+				C49ED66327D5FBEC009C8CBC /* EncTool.swift in Sources */,
 				C4D9686C27E1AF0300710BDC /* Tools.swift in Sources */,
 				C4F22D1927EB254B00BEEF1F /* keychaintool.swift in Sources */,
 			);
