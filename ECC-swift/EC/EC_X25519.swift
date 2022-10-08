@@ -91,6 +91,11 @@ class EC_X25519:ECFun{
             tmp.resetAllBytes()
             tmp2.resetAllBytes()
             
+            
+            sk[0] &= 248;
+            sk[31] &= 127;
+            sk[31] |= 64
+            
             if(crypto_scalarmult_base(&pk, &sk) == 0 ){
                 break
             }
