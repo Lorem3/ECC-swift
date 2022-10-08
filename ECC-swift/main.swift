@@ -200,6 +200,38 @@ func main(){
         switch cmd {
         case "g":
             
+            var key = dicArg["k"] as! String?
+            
+            if strSecKey == nil  &&  key != nil  {
+                let datakey = key!.data(using: .utf8)!;
+                
+                var outKey = [UInt8](repeating: 0, count: 32);
+                datakey.withUnsafeBytes{ bf  in
+                    let kdf = KDF(alg: .kdfv2, outLen: 32, salt: KDF.scryptSalt, saltLen: KDF.scryptSalt.count, phrase: bf.baseAddress!, phraseLen: bf.count)
+                    
+                    
+                    kdf.generateKey(outKey: &outKey, outKeyLen: outKey.count)
+                    
+                    let d = Data(bytesNoCopy: &outKey, count: outKey.count, deallocator: .none);
+                    
+                    strSecKey = d.base64EncodedString()
+                    
+                    
+                    let msg = """
+                    \u{001B}[31;49m
+                algorithm: PBKDF2
+                salt:\(KDF.scryptSalt)
+                iterations:123456
+                keyPhrase:\(key!)
+                \u{001B}[0;0m
+                """
+                    print(msg)
+                    
+                }
+                
+            }
+            
+            
             
             let kp = try ectool.genKeyPair(strSecKey )
             
