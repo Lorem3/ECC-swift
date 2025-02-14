@@ -1,13 +1,19 @@
 PODS:
   - LTScrypt (0.0.4)
+  - secp256k1_swift (1.0.3)
+  - Sodium (0.9.1)
   - SSKeychain (1.4.1)
 
 DEPENDENCIES:
   - LTScrypt (from `https://github.com/vitock/scrypt`, tag `0.0.4`)
+  - secp256k1_swift
+  - Sodium
   - SSKeychain
 
 SPEC REPOS:
   trunk:
+    - secp256k1_swift
+    - Sodium
     - SSKeychain
 
 EXTERNAL SOURCES:
@@ -22,8 +28,10 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   LTScrypt: 154686bb0a565789d91453f6c85dab8333cef7d2
+  secp256k1_swift: 4fc5c4b2d2c6d21ee8ccb868cdc92da12f38bed9
+  Sodium: 23d11554ecd556196d313cf6130d406dfe7ac6da
   SSKeychain: 55cc80f66f5c73da827e3077f02e43528897db41
 
-PODFILE CHECKSUM: 14c3476d0a60ebc02840ca619fa74f477255d17e
+PODFILE CHECKSUM: 3299feb088dcb523d75eb22d34b342624b3a7e75
 
 COCOAPODS: 1.11.3

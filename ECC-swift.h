@@ -9,8 +9,11 @@
 #define _BridgeHead_
 
 #import <CommonCrypto/CommonHMAC.h>
-#import "sodium.h"
-//#import "secp256k1.h"
+#import <Sodium/Sodium.h>
+#import <Sodium/sodium_lib.h>
+
+
+#import "secp256k1.h"
 //#import <zlib.h>
 
 //#import "secp256k1_preallocated.h"

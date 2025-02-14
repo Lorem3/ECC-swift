@@ -68,7 +68,7 @@ func printKey(key:Data,title:String){
     
 }
 
-let Version = "2.2.1"
+let Version = "2.2.2"
 
 let helpMsg = """
 ecc \(Version)

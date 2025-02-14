@@ -108,6 +108,7 @@ class EncTool {
         }
         let strPriKey = try ec.seckeyToString(&_keysNew)
         var pub = [UInt8](repeating: 0, count: ec.pubLen);
+        
         ec.genPubKey(seckey: &_keysNew, pubkey: &pub)
         let strPubKey = try ec.pubkeyToString(&pub);
         return (pubKey:strPubKey,priKey:strPriKey)

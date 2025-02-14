@@ -6,6 +6,7 @@
 //
 
 import Foundation
+
 typealias ECSecKeyPointer = UnsafeMutableRawPointer
 typealias ECPubKeyPointer = UnsafeMutableRawPointer
 
