@@ -10,7 +10,6 @@
 		7A13DBA2A294CD60C0F9CDC3 /* Pods_ECC_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 783E780A82AFB247DBB67D10 /* Pods_ECC_swift.framework */; };
 		C41B6B0227E81C9D0073AD1D /* randomArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B6B0127E81C9D0073AD1D /* randomArt.swift */; };
 		C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B427FDE1B6004E55FC /* Cryptor.swift */; };
-		C43B06B727FEA870004E55FC /* test.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B627FEA870004E55FC /* test.swift */; };
 		C5A1B003280B060900400456 /* build_info.c in Sources */ = {isa = PBXBuildFile; fileRef = C5A1B001280B060900400456 /* build_info.c */; };
 		C443211A28164E33008872DA /* libtommath in Frameworks */ = {isa = PBXBuildFile; productRef = C443211928164E33008872DA /* libtommath */; };
 		C4695F4D2D5F13DD000B34B5 /* libsodium.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C4695F4C2D5F13DD000B34B5 /* libsodium.a */; };
@@ -294,7 +293,6 @@
 				C4ECE55E280B060900400456 /* EC.swift in Sources */,
 				C4B11FF22888095700DDC5B6 /* EC_X25519.swift in Sources */,
 				C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */,
-				C43B06B727FEA870004E55FC /* test.swift in Sources */,
 				C49ED66327D5FBEC009C8CBC /* EncTool.swift in Sources */,
 				C4D9686C27E1AF0300710BDC /* Tools.swift in Sources */,
 				C4F22D1927EB254B00BEEF1F /* keychaintool.swift in Sources */,
