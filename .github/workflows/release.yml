@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build and Release
+    name: Build Universal Binary
     runs-on: macos-latest
 
     steps:
@@ -19,39 +19,24 @@ jobs:
           gem install cocoapods
           pod install --project-directory=.
 
-      - name: Build x86_64
+      - name: Build Universal Binary
         run: |
           xcodebuild build \
             -workspace ECC-swift.xcworkspace \
             -scheme ECC-swift \
             -configuration Release \
-            -derivedDataPath build/x86_64 \
-            -destination "generic/platform=macOS,arch=x86_64" \
+            -derivedDataPath build \
+            -destination "platform=macOS" \
             ONLY_ACTIVE_ARCH=NO \
+            ARCHS="arm64 x86_64" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Build arm64
+      - name: Verify Binary
         run: |
-          xcodebuild build \
-            -workspace ECC-swift.xcworkspace \
-            -scheme ECC-swift \
-            -configuration Release \
-            -derivedDataPath build/arm64 \
-            -destination "generic/platform=macOS,arch=arm64" \
-            ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Create universal binary
-        run: |
-          mkdir -p release
-          lipo -create -output release/ECC2 \
-            build/x86_64/Build/Products/Release/ECC2 \
-            build/arm64/Build/Products/Release/ECC2
-          file release/ECC2
+          file build/Build/Products/Release/ECC2
+          lipo -info build/Build/Products/Release/ECC2
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -63,4 +48,4 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            release/ECC2
+            build/Build/Products/Release/ECC2
