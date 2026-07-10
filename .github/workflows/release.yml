@@ -14,14 +14,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-
-      - name: Install CocoaPods
-        run: bundle exec pod install --project-directory=.
+      - name: Setup Ruby and CocoaPods
+        run: |
+          gem install cocoapods
+          pod install --project-directory=.
 
       - name: Build x86_64
         run: |
