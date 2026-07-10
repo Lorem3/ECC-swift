@@ -501,7 +501,7 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		C443211828164E33008872DA /* XCRemoteSwiftPackageReference "libtommath" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "git@gitee.com:mirrors/libtommath.git";
+			repositoryURL = "https://gitee.com/mirrors/libtommath.git";
 			requirement = {
 				kind = revision;
 				revision = 5108f12350b6daa4aa5dbc846517ad1db2f8388a;
