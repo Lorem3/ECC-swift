@@ -169,9 +169,9 @@ extension EC{
         
         
     }
-    func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer ,sharePoint:ECPubKeyPointer? = nil) throws{
-        
-        
+    func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer ,sharePoint:ECPubKeyPointer? = nil, useSha512: Bool = false) throws{
+
+
         var pub : ECPubKey = ECPubKey()
         try self.readPubKey(pubKeyB, count: pubKeyBufferLength, R: &pub);
         ecdhSha512(secKeyA: secKeyA, pubKeyB: pub, outBf64: outBf64);

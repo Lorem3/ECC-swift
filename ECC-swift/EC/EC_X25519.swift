@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CommonCrypto
 
 typealias ECSecKeyPointer = UnsafeMutableRawPointer
 typealias ECPubKeyPointer = UnsafeMutableRawPointer
@@ -20,21 +21,21 @@ protocol ECFun{
     var secLen: Int {get}
     var pubLen: Int {get}
     var name: String {get}
- 
+
     func genKeyPair(seckey:  ECSecKeyPointer,pubkey:  ECPubKeyPointer?)
-    func genPubKey(seckey:  ECSecKeyPointer,pubkey:  ECPubKeyPointer)  
-    func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer,sharePoint:ECPubKeyPointer?) throws
-    
+    func genPubKey(seckey:  ECSecKeyPointer,pubkey:  ECPubKeyPointer)
+    func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer,sharePoint:ECPubKeyPointer?,useSha512:Bool) throws
+
     func readPubKey(_ base64str:String,pubkey: ECPubKeyPointer) throws
-    
+
     func readSecKey(_ base64str:String,seckey: ECSecKeyPointer) throws
-    
+
     func seckeyToString(_ seckey:ECSecKeyPointer) throws -> String
-    
+
     func pubkeyToString(_ pubkey:ECSecKeyPointer) throws -> String
-    
+
     func generateSecBytes(_ secKey:ECSecKeyPointer);
-    
+
     func convertPubKeyCanonical(pub:UnsafeRawPointer,pubSize:Int,toPub:ECPubKeyPointer) throws;
 }
 
@@ -117,8 +118,10 @@ class EC_X25519:ECFun{
         let pk = pubkey.bindMemory(to: UInt8.self, capacity: Int(pubLen));
         crypto_scalarmult_base(pk, sk)
     }
-    func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer, sharePoint:ECPubKeyPointer? = nil ) throws {
-        
+
+    /// 使用SHA512的ECDH（新格式）
+    func ecdhSha512(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer, sharePoint:ECPubKeyPointer? = nil ) throws {
+
         let sharelen = Int(crypto_scalarmult_BYTES)
         let skA = secKeyA.bindMemory(to: UInt8.self, capacity: Int(secLen));
         let pkB = pubKeyB.bindMemory(to: UInt8.self, capacity: Int(pubLen));
@@ -132,18 +135,16 @@ class EC_X25519:ECFun{
         if(crypto_scalarmult(&share , skA , pkB) != 0){
             throw ECErr.ECDHError
         }
-        
+
         if( sharePoint != nil ){
             memcpy(sharePoint, &share, sharelen)
         }
-        
-        
+
         /// 计算hash  sharePoint || Pub1 || Pub2
         if crypto_scalarmult_base(&pkA , skA) != 0 {
             throw ECErr.ECDHError
         }
-        
-         
+
         if (sodium_compare(&pkA, pkB, Int(pubLen)) < 0){
             memcpy(&share[sharelen], &pkA, Int(pubLen))
             memcpy(&share[sharelen + Int(pubLen)], pkB, Int(pubLen))
@@ -151,13 +152,61 @@ class EC_X25519:ECFun{
             memcpy(&share[sharelen + Int(pubLen)], &pkA, Int(pubLen))
             memcpy(&share[sharelen], pkB, Int(pubLen))
         }
-        
+
+        // 使用SHA512替代blake2b
+        let totalLen = sharelen + Int(pubLen * 2)
+        // 直接使用数组指针，确保在闭包内完成所有操作
+        share.withUnsafeBytes { rawBuffer in
+            let dh = outBf64.bindMemory(to: UInt8.self, capacity: 64)
+            CC_SHA512(rawBuffer.baseAddress!, CC_LONG(totalLen), dh)
+        }
+
+        share.resetAllBytes()
+        pkA.resetAllBytes()
+    }
+
+    func ecdh(secKeyA: ECSecKeyPointer,pubKeyB:ECPubKeyPointer,outBf64:UnsafeMutableRawPointer, sharePoint:ECPubKeyPointer? = nil, useSha512: Bool = false ) throws {
+
+        if useSha512 {
+            try ecdhSha512(secKeyA: secKeyA, pubKeyB: pubKeyB, outBf64: outBf64, sharePoint: sharePoint)
+            return
+        }
+
+        let sharelen = Int(crypto_scalarmult_BYTES)
+        let skA = secKeyA.bindMemory(to: UInt8.self, capacity: Int(secLen));
+        let pkB = pubKeyB.bindMemory(to: UInt8.self, capacity: Int(pubLen));
+
+        var pkA = [UInt8](repeating: 0, count: Int(pubLen));
+        var share =  [UInt8](repeating: 0, count: sharelen + Int(pubLen * 2));
+        defer{
+            share.resetAllBytes()
+            pkA.resetAllBytes()
+        }
+        if(crypto_scalarmult(&share , skA , pkB) != 0){
+            throw ECErr.ECDHError
+        }
+
+        if( sharePoint != nil ){
+            memcpy(sharePoint, &share, sharelen)
+        }
+
+
+        /// 计算hash  sharePoint || Pub1 || Pub2
+        if crypto_scalarmult_base(&pkA , skA) != 0 {
+            throw ECErr.ECDHError
+        }
+
+
+        if (sodium_compare(&pkA, pkB, Int(pubLen)) < 0){
+            memcpy(&share[sharelen], &pkA, Int(pubLen))
+            memcpy(&share[sharelen + Int(pubLen)], pkB, Int(pubLen))
+        }else{
+            memcpy(&share[sharelen + Int(pubLen)], &pkA, Int(pubLen))
+            memcpy(&share[sharelen], pkB, Int(pubLen))
+        }
+
         let dh = outBf64.bindMemory(to: UInt8.self, capacity: 64);
         crypto_generichash(dh,64,&share,UInt64(share.count),nil,0);
-        
-        
-        
-        
     }
     
     func readPubKey(_ base64str:String,pubkey: ECPubKeyPointer) throws{

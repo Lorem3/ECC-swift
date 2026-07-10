@@ -60,9 +60,21 @@ class EncTool {
     @inline(__always)  static  func getCurveType(_ type:UInt16) -> CurveType{
         return (type & 4) == 0 ? .Secp256k1 : .Curve25519;
     }
-    
+
+    /// 判断是否是新格式 (bit 3 = 1 表示新格式，使用SHA512)
+    @inline(__always) static func isNewFormat(_ type:UInt16) -> Bool{
+        return (type & 8) != 0
+    }
+
     @inline(__always) func getEncType(zip:Bool,alg:CryptAlgorithm) -> UInt16{
-        return  (curveType == .Secp256k1 ? 0 : 4)  |  ((zip ? 0 : 1) | (alg == CryptAlgorithm.aes256 ? 0 : 2))
+        // bit 3 = 1 表示新格式（默认使用新格式）
+        return  (curveType == .Secp256k1 ? 0 : 4) | 8 | ((zip ? 0 : 1) | (alg == CryptAlgorithm.aes256 ? 0 : 2))
+    }
+
+    /// 获取老格式类型标志 (bit 3 = 0)
+    @inline(__always) func getEncTypeLegacy(zip:Bool,alg:CryptAlgorithm) -> UInt16{
+        // bit 3 = 0 表示老格式
+        return  (curveType == .Secp256k1 ? 0 : 4) | ((zip ? 0 : 1) | (alg == CryptAlgorithm.aes256 ? 0 : 2))
     }
     
     static var Secp255k1 : EncTool  = {
@@ -128,17 +140,17 @@ class EncTool {
     
     /// 反序列化
     private func deSearilizeToEncResult(_ data:Data)  throws -> EncryptResult{
-        
+
         return try data.withUnsafeBytes { bf -> EncryptResult in
             var Zero = bf.baseAddress?.load(fromByteOffset: 0, as: UInt16.self);
             Zero = CFSwapInt16HostToLittle(Zero!);
-            
+
             var ivLen = bf.baseAddress?.load(fromByteOffset: 2, as: UInt16.self);
             ivLen = CFSwapInt16HostToLittle(ivLen!);
-            
+
             var macLen = bf.baseAddress?.load(fromByteOffset: 4, as: UInt16.self);
             macLen = CFSwapInt16HostToLittle(macLen!);
-            
+
             var ephemPubLen = bf.baseAddress?.load(fromByteOffset: 6, as: UInt16.self);
             ephemPubLen = CFSwapInt16HostToLittle(ephemPubLen!);
             
@@ -227,7 +239,8 @@ class EncTool {
             outHash.resetAllBytes()
         }
         
-        try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &outHash,sharePoint: nil)
+        // 新格式使用SHA512进行ECDH
+        try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &outHash,sharePoint: nil, useSha512: true)
       
          
         var iv:[UInt8]
@@ -276,26 +289,111 @@ class EncTool {
                 let pData = bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count);
                 let outhash32 = bf2.baseAddress!.advanced(by: 32);
                 let pHmacKey = outhash32.bindMemory(to: UInt8.self, capacity: 32);
-                
-                let ht = curveType == .Curve25519 ? HMACType.blake2b : .sha256
-                
+
+                // 新格式使用SHA512 HMAC
+                let ht: HMACType = .sha512
+
                 HMAC.hmac(type: ht, key: pHmacKey, keyLen: 32, msg: pData, msgLen: bf.count, mac: &macOut, macLen: macOut.count)
              }
         };
-        
-        
+
+
         let macOutData = Data(bytes: macOut, count: macOut.count);
-        
+
         let t = getEncType(zip: zipfirst == 1, alg: type);
         let result = (ephemPubkeyData:ephemPubkeyData,iv:dataIv,dataEnc:dataEnc,mac:macOutData,type:t);
-        
+
         return searilizeEncResult(result);
-        
+
     }
-    
+
+    /// 老格式加密 (bit 3 = 0, 使用blake2b)
+    func ecEncryptLegacy(data:Data,pubKey:String ,zipfirst:Int = 1,type:CryptAlgorithm) throws ->Data{
+        var pubKeyEnc = [UInt8](repeating: 0, count: ec.pubLen)
+        try ec.readPubKey(pubKey, pubkey: &pubKeyEnc)
+
+        var randKey = [UInt8](repeating: 0, count: ec.secLen);
+        var randPub = [UInt8](repeating: 0, count: ec.pubLen);
+        try ec.genKeyPair(seckey: &randKey, pubkey: &randPub)
+        var outHash = [UInt8](repeating: 0, count: 64);
+        defer {
+            pubKeyEnc.resetAllBytes()
+            randKey.resetAllBytes()
+            randPub.resetAllBytes()
+            outHash.resetAllBytes()
+        }
+
+        // 老格式使用blake2b进行ECDH
+        try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &outHash,sharePoint: nil, useSha512: false)
+
+
+        var iv:[UInt8]
+        if type == .aes256{
+            iv = [UInt8](repeating: 0, count: kCCBlockSizeAES128);
+            randBuffer(&iv , kCCBlockSizeAES128);
+        }else{
+            iv = [UInt8](repeating: 0, count: 24);
+            randBuffer(&iv , 24);
+        }
+
+
+
+        let dataPlain = zipfirst == 1 ? try data.gzipCompress() : data;
+
+        let dataOutAvailable = dataPlain.count + kCCBlockSizeAES128
+
+        let dataOut = malloc(dataOutAvailable);
+        defer{
+            free(dataOut);
+        }
+
+        var outSize = 0;
+        dataPlain.withUnsafeBytes { bf  in
+            let cy = Cryptor(type: type , key: &outHash, keyLen: 32, iv: &iv, ivLen: iv.count);
+            cy.crypt(bfIn: bf.baseAddress!, bfInSize: bf.count, bfOut: dataOut!, bfOutMax: dataOutAvailable, outSize: &outSize)
+            cy.clean();
+        };
+
+
+
+        let dataEnc = Data(bytes: dataOut!, count: outSize)
+        let dataIv = Data(bytes: iv, count: iv.count)
+
+        let ephemPubkeyData = Data(bytes: randPub, count: ec.pubLen)
+
+        var dataForMac = Data(capacity: dataEnc.count + iv.count + ephemPubkeyData.count );
+        dataForMac.append(dataIv);
+        dataForMac.append(ephemPubkeyData);
+        dataForMac.append(dataEnc);
+
+
+        var macOut = [UInt8](repeating: 0, count:32);
+        dataForMac.withUnsafeBytes { bf  in
+            outHash.withUnsafeBytes { bf2 in
+                let pData = bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count);
+                let outhash32 = bf2.baseAddress!.advanced(by: 32);
+                let pHmacKey = outhash32.bindMemory(to: UInt8.self, capacity: 32);
+
+                // 老格式使用blake2b HMAC
+                let ht: HMACType = curveType == .Curve25519 ? .blake2b : .sha256
+
+                HMAC.hmac(type: ht, key: pHmacKey, keyLen: 32, msg: pData, msgLen: bf.count, mac: &macOut, macLen: macOut.count)
+             }
+        };
+
+
+        let macOutData = Data(bytes: macOut, count: macOut.count);
+
+        let t = getEncTypeLegacy(zip: zipfirst == 1, alg: type);
+        let result = (ephemPubkeyData:ephemPubkeyData,iv:dataIv,dataEnc:dataEnc,mac:macOutData,type:t);
+
+        return searilizeEncResult(result);
+
+    }
+
     static func ecDecrypt(encData:Data,priKey:String) throws -> Data{
         if encData.count > 10{
-            
+
             let curve = encData.withUnsafeBytes { bf  -> CurveType in
             var Zero = bf.baseAddress!.load(fromByteOffset: 0, as: UInt16.self);
              Zero = CFSwapInt16HostToLittle(Zero);
@@ -316,47 +414,53 @@ class EncTool {
     }
     
     func ecDecrypt(encData:Data,priKey:String) throws -> Data{
-     
+
         let encResult = try deSearilizeToEncResult(encData);
-        
+
+        // 判断是否是新格式 (bit 3 = 1)
+        let useNewFormat = EncTool.isNewFormat(encResult.type)
+
         var dataPrivate = [UInt8](repeating: 0, count: ec.secLen);
         /// 随机私钥生成的公钥。
         var ephemPubKey = [UInt8](repeating: 0, count: ec.pubLen);
-        
-        try! ec.readSecKey(priKey, seckey: &dataPrivate)
-        
+
+        try ec.readSecKey(priKey, seckey: &dataPrivate)
+
         defer {
             dataPrivate.resetAllBytes()
             ephemPubKey.resetAllBytes()
         }
-        
-        
+
+
         _ = try encResult.ephemPubkeyData.withUnsafeBytes { bf in
 
             try ec.convertPubKeyCanonical(pub: bf.baseAddress!, pubSize: bf.count, toPub: &ephemPubKey)
         }
-        
+
         var outHash = [UInt8](repeating: 0, count: 64);
-        try ec.ecdh(secKeyA: &dataPrivate, pubKeyB: &ephemPubKey, outBf64: &outHash,sharePoint: nil)
-    
+        // 根据格式版本选择ECDH哈希算法
+        try ec.ecdh(secKeyA: &dataPrivate, pubKeyB: &ephemPubKey, outBf64: &outHash,sharePoint: nil, useSha512: useNewFormat)
+
         var dataForMac = Data(capacity: encResult.ephemPubkeyData.count + encResult.iv.count + encResult.dataEnc.count);
-        
+
         dataForMac.append(encResult.iv);
         dataForMac.append(encResult.ephemPubkeyData);
         dataForMac.append(encResult.dataEnc);
         var macOut = [UInt8](repeating: 0, count:32 );
-        
+
         outHash.withUnsafeBytes { bf2 in
             let p = bf2.baseAddress?.advanced(by: 32).bindMemory(to: UInt8.self, capacity: 32);
             dataForMac.withUnsafeBytes { bf  in
 //                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),p,32,bf.baseAddress,bf.count,&macOut);
-                let ht = curveType == .Curve25519 ? HMACType.blake2b : .sha256
+                // 根据格式版本选择HMAC类型
+                // 新格式使用SHA512，老格式使用blake2b/sha256
+                let ht: HMACType = useNewFormat ? .sha512 : .blake2b
 
                 HMAC.hmac(type: ht, key: p!, keyLen: 32, msg: bf.baseAddress!.bindMemory(to: UInt8.self, capacity: bf.count), msgLen: bf.count, mac: &macOut, macLen: macOut.count)
 
             }
         }
-         
+
         if(encResult.mac != Data(macOut)){
             throw LECCError.DecryptMacNotFit
         }
@@ -693,17 +797,22 @@ class EncTool {
             pubKey.resetAllBytes()
         }
         try ectool.ec.readSecKey(prikeyString, seckey: &privateKey)
-        
+
         try dataEphermPubKey?.withUnsafeBytes({ bf  in
             try ectool.ec.convertPubKeyCanonical(pub: bf.baseAddress!, pubSize: bf.count, toPub: &pubKey)
-            
+
         });
-        
-        try ectool.ec.ecdh(secKeyA: &privateKey, pubKeyB: &pubKey, outBf64: &dhHash,sharePoint: nil)
-        
+
+        // 判断是否是新格式 (bit 3 = 1)
+        let useNewFormat = EncTool.isNewFormat(type)
+
+        // 根据格式版本选择ECDH哈希算法
+        try ectool.ec.ecdh(secKeyA: &privateKey, pubKeyB: &pubKey, outBf64: &dhHash,sharePoint: nil, useSha512: useNewFormat)
+
         /// check mac iv empherpubkey dataenc
-        
-        let hmactype : HMACType = ectool.curveType == .Curve25519 ? .blake2b : .sha256
+
+        // 根据格式版本选择HMAC类型
+        let hmactype : HMACType = useNewFormat ? .sha512 : (ectool.curveType == .Curve25519 ? .blake2b : .sha256)
         
         let hmac = dhHash.withUnsafeBytes { bf  in
             return HMAC(type: hmactype, key: bf.baseAddress!.advanced(by: 32).bindMemory(to: UInt8.self, capacity: 32), keyLength: 32, macLength: 32)
@@ -1044,7 +1153,7 @@ class EncTool {
         var pubKeyEnc = [UInt8](repeating: 0, count: ec.pubLen);
         var randKey = [UInt8](repeating: 0, count: ec.secLen);
         var randPub = [UInt8](repeating: 0, count: ec.pubLen);
-        try! ec.genKeyPair(seckey: &randKey, pubkey: &randPub);
+        try ec.genKeyPair(seckey: &randKey, pubkey: &randPub);
         defer{
             randPub.resetAllBytes()
             randKey.resetAllBytes()
@@ -1052,7 +1161,8 @@ class EncTool {
         }
           
         try ec.readPubKey(pubkeyString, pubkey: &pubKeyEnc)
-        try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &dhHash,sharePoint: nil);
+        // 新格式使用SHA512进行ECDH
+        try ec.ecdh(secKeyA: &randKey, pubKeyB: &pubKeyEnc, outBf64: &dhHash,sharePoint: nil, useSha512: true);
         
         var macPostion = 0
         var macBuffer = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
@@ -1105,9 +1215,10 @@ class EncTool {
         
         var cryptor:Cryptor
         cryptor = Cryptor(type: alg, key: &dhHash, keyLen: 32, iv: &iv, ivLen: iv.count);
-         
-        
-        let hmactype : HMACType = curveType == .Curve25519 ? .blake2b : .sha256
+
+
+        // 新格式使用SHA512 HMAC
+        let hmactype : HMACType = .sha512
 
         
         defer {

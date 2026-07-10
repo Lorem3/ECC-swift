@@ -21,13 +21,13 @@ func readDataFromStdIn() -> Data{
     repeat{
         buffer[t] = UInt8(c);
         t += 1;
-        
+
         c = fgetc(stdin);
     }while c != EOF && t < bfsize
-    
+
     let r = Data(bytes: buffer, count: t);
     return r;
-    
+
 }
 
 func printKey(key:Data,title:String){
@@ -413,10 +413,10 @@ func main(){
             
             
             let strmsg = dicArg["m"] as! String?
-            
+
             var dataMsg : Data?
             if strmsg != nil {
-                dataMsg = try! LTBase64.base64Decode(strmsg!)
+                dataMsg = try? LTBase64.base64Decode(strmsg!)
             }
             
             if(dataMsg == nil){
@@ -458,6 +458,84 @@ func main(){
             let s = RandomArt.randomArt(data: dataMsg!, title: nil , end: nil)
             print("\n\(s)");
             break
+        case "test":
+            // 测试新老格式加密
+            print("=== 新老格式加密测试 ===\n")
+
+            // 生成密钥对
+            let kp = try! EncTool.Curve25519.genKeyPair(nil)
+            print("私钥: \(kp.priKey)")
+            print("公钥: \(kp.pubKey)\n")
+
+            let testMessage = "123123123abcabc"
+            let messageData = testMessage.data(using: .utf8)!
+            print("原始消息: \(testMessage)\n")
+
+            // 使用老格式加密 (bit 3 = 0, blake2b)
+            print("--- 老格式加密 (blake2b) ---")
+            let encLegacy = try! EncTool.Curve25519.ecEncryptLegacy(data: messageData, pubKey: kp.pubKey, zipfirst: 0, type: .aes256)
+            print("加密结果 (Base64): \(encLegacy.base64EncodedString())")
+            let typeLegacy = encLegacy.withUnsafeBytes { bf -> UInt16 in
+                bf.baseAddress!.load(fromByteOffset: 0, as: UInt16.self).littleEndian
+            }
+            print("类型标志: \(typeLegacy), bit 3: \((typeLegacy & 8) != 0 ? "是" : "否")")
+            let decLegacy = try! EncTool.ecDecrypt(encData: encLegacy, priKey: kp.priKey)
+            print("解密验证: \(decLegacy == messageData ? "成功" : "失败")\n")
+
+            // 使用新格式加密 (bit 3 = 1, SHA512)
+            print("--- 新格式加密 (SHA512) ---")
+            let encNew = try! EncTool.Curve25519.ecEncrypt(data: messageData, pubKey: kp.pubKey, zipfirst: 0, type: .aes256)
+            print("加密结果 (Base64): \(encNew.base64EncodedString())")
+            let typeNew = encNew.withUnsafeBytes { bf -> UInt16 in
+                bf.baseAddress!.load(fromByteOffset: 0, as: UInt16.self).littleEndian
+            }
+            print("类型标志: \(typeNew), bit 3: \((typeNew & 8) != 0 ? "是" : "否")")
+            let decNew = try! EncTool.ecDecrypt(encData: encNew, priKey: kp.priKey)
+            print("解密验证: \(decNew == messageData ? "成功" : "失败")\n")
+
+            // 测试用户提供的密文和私钥
+            print("--- 测试用户提供的密文 ---")
+            let userPriKey = "UDODV5bddxDAEXop0PYoyiT46qh2JaC9og/IrXXxiXc="
+            let userEncBase64 = "DQAQACAAIADHIHzAFDl56gwF3oRA0JfOHvF2Z3M2oySF36B/we452Yce9Kkj2dobRUF3tTYnBNXW1B1iWSCdqvxVUuzSrFfA7jBm6jxcHUv+diadYtHARYHYs0z1YwYI431HYuzKxsJRlYGo2fYQhnCwagso2JoH"
+            print("私钥: \(userPriKey)")
+            print("密文: \(userEncBase64)")
+
+            let userEncData = Data(base64Encoded: userEncBase64)!
+            let userType = userEncData.withUnsafeBytes { bf -> UInt16 in
+                bf.baseAddress!.load(fromByteOffset: 0, as: UInt16.self).littleEndian
+            }
+            print("类型标志: \(userType), bit 3: \((userType & 8) != 0 ? "是" : "否")")
+
+            do {
+                let userDec = try EncTool.ecDecrypt(encData: userEncData, priKey: userPriKey)
+                print("解密结果 (长度): \(userDec.count) 字节")
+                print("解密结果 (Hex): \(userDec.map { String(format: "%02x", $0) }.joined())")
+
+                // 尝试解压 gzip 数据
+                if userDec.count >= 2 && userDec[0] == 0x1f && userDec[1] == 0x8b {
+                    print("检测到 gzip 压缩数据，正在解压...")
+                    if let decompressed = try? userDec.gzipDecompress() {
+                        print("解压结果 (长度): \(decompressed.count) 字节")
+                        if let str = String(data: decompressed, encoding: .utf8) {
+                            print("解压结果 (String): \(str)")
+                        } else {
+                            print("解压结果 (Hex): \(decompressed.map { String(format: "%02x", $0) }.joined())")
+                        }
+                    } else {
+                        print("gzip 解压失败")
+                    }
+                } else {
+                    if let str = String(data: userDec, encoding: .utf8) {
+                        print("解密结果 (String): \(str)")
+                    } else {
+                        print("解密结果: 非 UTF-8 数据")
+                    }
+                }
+            } catch {
+                print("解密失败: \(error)")
+            }
+
+            print("\n=== 测试完成 ===")
         default:
             Lprint(helpMsg)
         }

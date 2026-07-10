@@ -202,8 +202,7 @@ class KDF{
 enum HMACType {
     case sha256;
     case blake2b;
-    
-    
+    case sha512;
 }
 class HMAC{
     var hType:HMACType?
@@ -227,46 +226,61 @@ class HMAC{
     }
 
     
-    init(type:HMACType,key:UnsafePointer<UInt8>,keyLength:Int,macLength:Int){        
+    init(type:HMACType,key:UnsafePointer<UInt8>,keyLength:Int,macLength:Int){
         hType = type
         outLen = macLength;
         if type == HMACType.sha256{
             CCHmacInit(&ccHmacCtx,CCHmacAlgorithm(kCCHmacAlgSHA256),key,keyLength)
             blake2b_state = nil
-            
-            
         }
         else if(type == .blake2b){
             blake2b_buffer = UnsafeMutableRawPointer.allocate(byteCount: crypto_generichash_blake2b_statebytes(), alignment: 64);
             blake2b_state = OpaquePointer.init(blake2b_buffer!)!
             crypto_generichash_blake2b_init(blake2b_state!, key, keyLength, macLength)
-        
-            
+        }
+        else if(type == .sha512){
+            CCHmacInit(&ccHmacCtx,CCHmacAlgorithm(kCCHmacAlgSHA512),key,keyLength)
+            blake2b_state = nil
         }
     }
     
     func update(data:UnsafePointer<UInt8> , size:Int){
-        
+
         if(hType == .sha256){
             CCHmacUpdate(&ccHmacCtx,data,size)
         }else if(hType == .blake2b){
             crypto_generichash_blake2b_update(blake2b_state!, data, UInt64(size))
+        }else if(hType == .sha512){
+            CCHmacUpdate(&ccHmacCtx,data,size)
         }
     }
-    
+
     func finish(mac:UnsafeMutablePointer<UInt8>  ){
-        if(hType == .sha256){
-            CCHmacFinal(&ccHmacCtx, mac);
-        }else if(hType == .blake2b){
+        if(hType == .blake2b){
             crypto_generichash_blake2b_final(blake2b_state!, mac, outLen)
+        }else{
+            var tmp = [UInt8](repeating: 0, count: 64)
+            if(hType == .sha256){
+                CCHmacFinal(&ccHmacCtx, &tmp);
+            }else if(hType == .sha512){
+                CCHmacFinal(&ccHmacCtx, &tmp);
+            }
+            let actualLen = min(outLen, 64)
+            memcpy(mac, &tmp, actualLen)
+            if actualLen < outLen {
+                arc4random_buf(mac.advanced(by: actualLen), outLen - actualLen)
+            }
+            sodium_memzero(&tmp, 64)
         }
     }
-    
+
     deinit{
         if(hType == .sha256){
-            
+
         }else if(hType == .blake2b){
             blake2b_buffer!.deallocate()
+        }else if(hType == .sha512){
+
         }
     }
 }
