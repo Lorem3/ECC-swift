@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Install CocoaPods
+        run: bundle exec pod install --project-directory=.
+
+      - name: Build x86_64
+        run: |
+          xcodebuild build \
+            -workspace ECC-swift.xcworkspace \
+            -scheme ECC-swift \
+            -configuration Release \
+            -derivedDataPath build/x86_64 \
+            -destination "generic/platform=macOS,arch=x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build arm64
+        run: |
+          xcodebuild build \
+            -workspace ECC-swift.xcworkspace \
+            -scheme ECC-swift \
+            -configuration Release \
+            -derivedDataPath build/arm64 \
+            -destination "generic/platform=macOS,arch=arm64" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Create universal binary
+        run: |
+          mkdir -p release
+          lipo -create -output release/ECC2 \
+            build/x86_64/Build/Products/Release/ECC2 \
+            build/arm64/Build/Products/Release/ECC2
+          file release/ECC2
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ECC-swift ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            release/ECC2
