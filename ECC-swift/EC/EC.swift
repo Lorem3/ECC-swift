@@ -8,7 +8,6 @@
 import Foundation
 import Accelerate
 import CommonCrypto
-import libtommath
 import secp256k1_swift
 import Sodium
 

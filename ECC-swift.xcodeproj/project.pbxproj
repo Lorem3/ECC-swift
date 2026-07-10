@@ -11,7 +11,6 @@
 		C41B6B0227E81C9D0073AD1D /* randomArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B6B0127E81C9D0073AD1D /* randomArt.swift */; };
 		C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B427FDE1B6004E55FC /* Cryptor.swift */; };
 		C5A1B003280B060900400456 /* build_info.c in Sources */ = {isa = PBXBuildFile; fileRef = C5A1B001280B060900400456 /* build_info.c */; };
-		C443211A28164E33008872DA /* libtommath in Frameworks */ = {isa = PBXBuildFile; productRef = C443211928164E33008872DA /* libtommath */; };
 		C4695F4D2D5F13DD000B34B5 /* libsodium.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C4695F4C2D5F13DD000B34B5 /* libsodium.a */; };
 		C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED65B27D5FBA0009C8CBC /* main.swift */; };
 		C49ED66327D5FBEC009C8CBC /* EncTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED66227D5FBEC009C8CBC /* EncTool.swift */; };
@@ -69,7 +68,6 @@
 				C4B11FEE2887A5E400DDC5B6 /* CryptoKit.framework in Frameworks */,
 				C4E38A052806BA9B0001ABE0 /* Accelerate.framework in Frameworks */,
 				7A13DBA2A294CD60C0F9CDC3 /* Pods_ECC_swift.framework in Frameworks */,
-				C443211A28164E33008872DA /* libtommath in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,9 +177,6 @@
 			dependencies = (
 			);
 			name = "ECC-swift";
-			packageProductDependencies = (
-				C443211928164E33008872DA /* libtommath */,
-			);
 			productName = "ECC-swift";
 			productReference = C49ED65827D5FBA0009C8CBC /* ECC2 */;
 			productType = "com.apple.product-type.tool";
@@ -210,9 +205,6 @@
 				Base,
 			);
 			mainGroup = C49ED64F27D5FBA0009C8CBC;
-			packageReferences = (
-				C443211828164E33008872DA /* XCRemoteSwiftPackageReference "libtommath" */,
-			);
 			productRefGroup = C49ED65927D5FBA0009C8CBC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -496,23 +488,7 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		C443211828164E33008872DA /* XCRemoteSwiftPackageReference "libtommath" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://gitee.com/mirrors/libtommath.git";
-			requirement = {
-				kind = revision;
-				revision = 5108f12350b6daa4aa5dbc846517ad1db2f8388a;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
-		C443211928164E33008872DA /* libtommath */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C443211828164E33008872DA /* XCRemoteSwiftPackageReference "libtommath" */;
-			productName = libtommath;
-		};
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C49ED65027D5FBA0009C8CBC /* Project object */;
