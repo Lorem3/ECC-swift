@@ -11,6 +11,7 @@
 		C41B6B0227E81C9D0073AD1D /* randomArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B6B0127E81C9D0073AD1D /* randomArt.swift */; };
 		C43B06B527FDE1B6004E55FC /* Cryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B427FDE1B6004E55FC /* Cryptor.swift */; };
 		C43B06B727FEA870004E55FC /* test.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B06B627FEA870004E55FC /* test.swift */; };
+		C5A1B003280B060900400456 /* build_info.c in Sources */ = {isa = PBXBuildFile; fileRef = C5A1B001280B060900400456 /* build_info.c */; };
 		C443211A28164E33008872DA /* libtommath in Frameworks */ = {isa = PBXBuildFile; productRef = C443211928164E33008872DA /* libtommath */; };
 		C4695F4D2D5F13DD000B34B5 /* libsodium.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C4695F4C2D5F13DD000B34B5 /* libsodium.a */; };
 		C49ED65C27D5FBA0009C8CBC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49ED65B27D5FBA0009C8CBC /* main.swift */; };
@@ -55,6 +56,8 @@
 		C4E9FE0A280300B00006B723 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		C4ECE55C280B060900400456 /* EC.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EC.swift; sourceTree = "<group>"; };
 		C4F22D1827EB254B00BEEF1F /* keychaintool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = keychaintool.swift; sourceTree = "<group>"; };
+		C5A1B001280B060900400456 /* build_info.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = build_info.c; sourceTree = "<group>"; };
+		C5A1B002280B060900400456 /* build_info.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = build_info.h; sourceTree = "<group>"; };
 		F6F546112C3001855EA315AA /* Pods-ECC-swift.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ECC-swift.release.xcconfig"; path = "Target Support Files/Pods-ECC-swift/Pods-ECC-swift.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -124,6 +127,8 @@
 				C41B6B0127E81C9D0073AD1D /* randomArt.swift */,
 				C4F22D1827EB254B00BEEF1F /* keychaintool.swift */,
 				C43B06B427FDE1B6004E55FC /* Cryptor.swift */,
+			C5A1B001280B060900400456 /* build_info.c */,
+			C5A1B002280B060900400456 /* build_info.h */,
 			);
 			path = "ECC-swift";
 			sourceTree = "<group>";
@@ -293,6 +298,7 @@
 				C49ED66327D5FBEC009C8CBC /* EncTool.swift in Sources */,
 				C4D9686C27E1AF0300710BDC /* Tools.swift in Sources */,
 				C4F22D1927EB254B00BEEF1F /* keychaintool.swift in Sources */,
+				C5A1B003280B060900400456 /* build_info.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

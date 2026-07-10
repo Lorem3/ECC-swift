@@ -12,8 +12,8 @@
 #import <Sodium/Sodium.h>
 #import <Sodium/sodium_lib.h>
 
-
 #import "secp256k1.h"
+#import "build_info.h"
 //#import <zlib.h>
 
 //#import "secp256k1_preallocated.h"

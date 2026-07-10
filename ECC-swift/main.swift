@@ -69,9 +69,12 @@ func printKey(key:Data,title:String){
 }
 
 let Version = "2.2.2"
+let buildDate = String(cString: get_build_date())
+let buildTimeStr = String(cString: get_build_time())
+let buildTime = "\(buildDate) \(buildTimeStr)"
 
 let helpMsg = """
-ecc \(Version)
+ecc \(Version) (\(buildTime))
 g [-prikey/secKey/s prikey]  generate keypair  [-S]  saveto key chain
 e  -pubkey/p pubkey -m msg [-f inputfilepath] -r[recursion for directory]
    -a a:aes256 s:salsa20 default -size n[M]
